@@ -5,8 +5,8 @@ import os
 import json
 
 
-IMG_PATH = 'X:\Books\FullPlate\data'
-IMG_MASK = 'X:\Books\FullPlate\data\msk'
+IMG_PATH = 'data'
+IMG_MASK = 'data/msk'
 
 def main():
     ant_path = os.path.join(IMG_PATH, 'ann')
@@ -20,18 +20,16 @@ def main():
             continue
         img_dim = (ann['size']['height'], ann['size']['width'])
         msk_img = mask_created(img_dim, points)
-        img = cv2.imread(os.path.join(img_path, os.path.splitext(file)[0] + '.bmp'))
+        img = cv2.imread(os.path.join(img_path, os.path.splitext(file)[0] + '.bmp'), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            continue
         img = cv2.resize(img, (512, 512))
         msk_img = cv2.resize(msk_img, (512, 512))
         cv2.imwrite(os.path.join(IMG_MASK, 'msk_' + os.path.splitext(file)[0] + '.jpg'), msk_img,
                     [int(cv2.IMWRITE_JPEG_QUALITY), 100])
-        cv2.imwrite(os.path.join(IMG_PATH, 'jpg', os.path.splitext(file)[0] + '.jpg'), img,
+        cv2.imwrite(os.path.join(IMG_PATH, 'jpg', 'img_' + os.path.splitext(file)[0] + '.jpg'), img,
                     [int(cv2.IMWRITE_JPEG_QUALITY), 100])
 
-
-
-def dataset_img_create(img_path):
-    pass
 
 
 def mask_created(img_dim, points):
