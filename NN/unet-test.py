@@ -16,14 +16,8 @@ import argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-
 IMG_TEST = ''
-
-
-lp = [255, 255, 255]
 fn = []
-
-COLOR_DICT = np.array([lp])
 
 
 def Unet(size):
@@ -109,7 +103,7 @@ def Unet(size):
     return model
 
 
-def testGenerator(test_path, num_image=30, target_size=(512, 512)):
+def testGenerator(test_path, target_size=(512, 512)):
     file_list = os.listdir(test_path)
     for i in range(len(file_list)):
         img = cv2.imread(os.path.join(test_path, file_list[i]), cv2.IMREAD_GRAYSCALE)
@@ -127,9 +121,8 @@ def saveResult(save_path, npyfile):
 
 
 def labelVisualize(predict_level, img):
-    img = img[:, :, 0] if len(img.shape) == 3 else img
-    img_out = np.zeros(img.shape + (3,))
-    img_out[img >= predict_level, :] = [128, 128, 128]
+    img_out = np.zeros(img.shape)
+    img_out[img >= predict_level] = 255
     return img_out
 
 
@@ -145,7 +138,7 @@ def main(args):
     with open("model-un-nn.json", "w") as json_file:
         json_file.write(model_json)
 
-    saveResult("/mnt/misk/misk/lplate/data/data/predict", results)
+    saveResult('', results)
 
 
 if __name__ == '__main__':
