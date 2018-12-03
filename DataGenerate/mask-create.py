@@ -7,6 +7,7 @@ import json
 
 IMG_PATH = 'data'
 IMG_MASK = 'data/msk'
+IMG_SIZE = (224, 224)
 
 def main():
     ant_path = os.path.join(IMG_PATH, 'ann')
@@ -23,8 +24,8 @@ def main():
         img = cv2.imread(os.path.join(img_path, os.path.splitext(file)[0] + '.bmp'), cv2.IMREAD_GRAYSCALE)
         if img is None:
             continue
-        img = cv2.resize(img, (512, 512))
-        msk_img = cv2.resize(msk_img, (512, 512))
+        img = cv2.resize(img, IMG_SIZE)
+        msk_img = cv2.resize(msk_img, IMG_SIZE)
         cv2.imwrite(os.path.join(IMG_MASK, 'msk_' + os.path.splitext(file)[0] + '.jpg'), msk_img,
                     [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         cv2.imwrite(os.path.join(IMG_PATH, 'jpg', 'img_' + os.path.splitext(file)[0] + '.jpg'), img,
