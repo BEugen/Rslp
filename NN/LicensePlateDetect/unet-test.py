@@ -16,7 +16,7 @@ import argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-IMG_TEST = 'data/data/test/img'
+IMG_TEST = ''
 fn = []
 
 
@@ -103,10 +103,12 @@ def Unet(size):
     return model
 
 
-def testGenerator(test_path, target_size=(512, 512)):
+def testGenerator(test_path, target_size=(224, 224)):
     file_list = os.listdir(test_path)
     for i in range(len(file_list)):
-        img = cv2.imread(os.path.join(test_path, file_list[i]), cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(os.path.join(test_path, os.path.splitext(file_list[i])[0] + '.bmp'), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            continue
         img = img / 255
         img = cv2.resize(img, target_size)
         img = np.reshape(img, (1, img.shape[0], img.shape[1], 1))
@@ -127,18 +129,18 @@ def labelVisualize(predict_level, img):
 
 
 def main(args):
-    model = Unet((512, 512, 1))
-    model.load_weights('result-un-nn/weights-15-un-nn.h5')
+    model = Unet((224, 224, 1))
+    model.load_weights('result-un-nn-224/weights-19-un-nn.h5')
 
     testgene = testGenerator(IMG_TEST)
-    results = model.predict_generator(testgene, 249, verbose=1)
+    results = model.predict_generator(testgene, 1210, verbose=1)
 
     # save model
     model_json = model.to_json()
     with open("model-un-nn.json", "w") as json_file:
         json_file.write(model_json)
 
-    saveResult('data/data/predict', results)
+    saveResult('', results)
 
 
 if __name__ == '__main__':
