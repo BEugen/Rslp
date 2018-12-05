@@ -3,9 +3,9 @@ import numpy as np
 import os
 import math
 
-MASK_PATH = ''
-IMG_PATH = ''
-IMG_LP = ''
+MASK_PATH = '/mnt/misk/misk/lplate/data/prd'
+IMG_PATH = '/mnt/misk/misk/lplate/data/img'
+IMG_LP = '/mnt/misk/misk/lplate/data/lp'
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
         img = cv2.resize(img, (512, 512))
         mask = cv2.resize(mask, (512, 512))
         print(file)
-        select_countur(mask, img, file)
+        select_countur(mask, img, file)  
 
 
 

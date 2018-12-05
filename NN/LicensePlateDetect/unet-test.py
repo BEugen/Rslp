@@ -16,7 +16,8 @@ import argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-IMG_TEST = ''
+IMG_TEST = '/mnt/misk/misk/lplate/data/img'
+PR_RSLT = '/mnt/misk/misk/lplate/data/prd'
 fn = []
 
 
@@ -133,14 +134,14 @@ def main(args):
     model.load_weights('result-un-nn-224/weights-19-un-nn.h5')
 
     testgene = testGenerator(IMG_TEST)
-    results = model.predict_generator(testgene, 1210, verbose=1)
+    results = model.predict_generator(testgene, 1000, verbose=1)
 
     # save model
     model_json = model.to_json()
     with open("model-un-nn.json", "w") as json_file:
         json_file.write(model_json)
 
-    saveResult('', results)
+    saveResult(PR_RSLT, results)
 
 
 if __name__ == '__main__':
