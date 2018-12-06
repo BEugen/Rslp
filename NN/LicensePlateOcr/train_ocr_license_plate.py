@@ -1,9 +1,7 @@
 import os
 from os.path import join
-import json
 import random
 import itertools
-import time
 import numpy as np
 from keras import backend as K
 from keras.layers.convolutional import Conv2D, MaxPooling2D
@@ -15,15 +13,16 @@ from keras.layers.recurrent import GRU
 from keras.optimizers import SGD
 import cv2
 from collections import Counter
-from keras.callbacks import TensorBoard
 import tensorflow as tf
-from time import time
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from keras import callbacks
 
 sess = tf.Session()
 K.set_session(sess)
 
+IMG_TRAIN = '/mnt/misk/misk/lplate/data/train'
+IMG_TEST = '/mnt/misk/misk/lplate/data/test'
 
 def get_counter(dirpath):
     letters = ''
@@ -37,8 +36,8 @@ def get_counter(dirpath):
     print('Max plate length in "%s":' % dirpath, max(Counter(lens).keys()))
     return Counter(letters + ' ')
 
-c_val = get_counter('X:/Books/FullPlate/data/ddenoise/train_in')
-c_train = get_counter('X:/Books/FullPlate/data/ddenoise/train_in')
+c_val = get_counter(IMG_TRAIN)
+c_train = get_counter(IMG_TRAIN)
 letters_train = set(c_train.keys())
 letters_val = set(c_val.keys())
 if letters_train == letters_val:
@@ -188,9 +187,9 @@ def train(img_w, load=False):
 
     batch_size = 32
     downsample_factor = pool_size ** 2
-    tiger_train = TextImageGenerator('X:/Books/FullPlate/data/ddenoise/train_in', img_w, img_h, batch_size, downsample_factor)
+    tiger_train = TextImageGenerator(IMG_TRAIN, img_w, img_h, batch_size, downsample_factor)
     tiger_train.build_data()
-    tiger_val = TextImageGenerator('X:/Books/FullPlate/data/ddenoise/train_in', img_w, img_h, batch_size, downsample_factor)
+    tiger_val = TextImageGenerator(IMG_TRAIN, img_w, img_h, batch_size, downsample_factor)
     tiger_val.build_data()
 
     act = 'relu'
@@ -241,9 +240,11 @@ def train(img_w, load=False):
     else:
         model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
 
-    tensorboard = TensorBoard(log_dir="../logs/{}".format(time()), write_graph=True, write_grads=True,
-                              write_images=True,
-                              histogram_freq=0)
+    log = callbacks.CSVLogger('./result-rnn-nn/log.csv')
+    tb = callbacks.TensorBoard(log_dir='./result-rnn-nn/tensorboard-logs',
+                               batch_size=tiger_train.n, histogram_freq=0)
+    checkpoint = callbacks.ModelCheckpoint('./result-rnn-nn/weights-{epoch:02d}-rnn-nn.h5', monitor='val_loss',
+                                           save_best_only=True, save_weights_only=True, verbose=1)
     # the loss calc occurs elsewhere, so use a dummy lambda func for the loss
     model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=sgd)
 
@@ -255,7 +256,7 @@ def train(img_w, load=False):
                             steps_per_epoch=tiger_train.n,
                             epochs=10,
                             validation_data=tiger_val.next_batch(),
-                            validation_steps=tiger_val.n, callbacks=[tensorboard])
+                            validation_steps=tiger_val.n, callbacks=[log, tb, checkpoint])
 
     return model
 
@@ -276,7 +277,7 @@ def decode_batch(out):
 def main():
 
 
-    tiger = TextImageGenerator('X:/Books/FullPlate/data/ddenoise/train_in', 128, 64, 9, 4)
+    tiger = TextImageGenerator(IMG_TRAIN, 128, 64, 9, 4)
     tiger.build_data()
 
     for inp, out in tiger.next_batch():
@@ -294,7 +295,7 @@ def main():
         break
 
     model = train(128, load=False)
-    tiger_test = TextImageGenerator('X:/Books/FullPlate/data/ddenoise/test_in', 128, 64, 9, 4)
+    tiger_test = TextImageGenerator(IMG_TEST, 128, 64, 9, 4)
     tiger_test.build_data()
 
     net_inp = model.get_layer(name='the_input').input
