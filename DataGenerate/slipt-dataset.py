@@ -1,10 +1,10 @@
 import os
 import shutil
 
-IMG_PATH_TRAIN = 'data/data/train'
-IMG_PATH_TEST = 'data/data/test'
-IMG_PATH = 'data/jpg'
-MSK_PATH = 'data/msk'
+IMG_PATH_TRAIN = '/mnt/misk/misk/lplate/data/data/train'
+IMG_PATH_TEST = '/mnt/misk/misk/lplate/data/data/test'
+IMG_PATH = '/mnt/misk/misk/lplate/data/jpg'
+MSK_PATH = '/mnt/misk/misk/lplate/data/msk'
 SPLIT_SIZE = 0.25
 
 

@@ -5,8 +5,8 @@ import os
 import json
 
 
-IMG_PATH = 'data'
-IMG_MASK = 'data/msk'
+IMG_PATH = '/mnt/misk/misk/lplate/data'
+IMG_MASK = '/mnt/misk/misk/lplate/data/msk'
 IMG_SIZE = (224, 224)
 
 def main():

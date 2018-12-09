@@ -254,7 +254,7 @@ def train(img_w, load=False):
 
         model.fit_generator(generator=tiger_train.next_batch(),
                             steps_per_epoch=tiger_train.n,
-                            epochs=10,
+                            epochs=50,
                             validation_data=tiger_val.next_batch(),
                             validation_steps=tiger_val.n, callbacks=[log, tb, checkpoint])
 

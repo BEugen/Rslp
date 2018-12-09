@@ -27,16 +27,15 @@ class RecognizeLp(object):
         self.dlp = self.__get_model_detect_lp()
         self.ocrlp = self.__get_model_ocr_lp()
 
-    def __detect_lp(self, img):
+    def __detect_lp(self, img, file):
         img_crop = cv2.resize(img, (224, 224))
         img_crop = img_crop / 255
         img_crop = np.reshape(img_crop, (1, img_crop.shape[0], img_crop.shape[1], 1))
         pred = self.dlp.predict(img_crop)[0]
         mask = np.zeros(pred.shape)
         mask[pred >= self.pdl] = 255
-        mask = cv2.resize(mask, img.shape).T
+        mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
         mask = mask.astype(np.uint8)
-        cv2.imwrite('test.jpg', mask)
         _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
         if len(contours) == 0:
             return None
@@ -54,15 +53,69 @@ class RecognizeLp(object):
         out = np.zeros_like(img)
         out[mask == 255] = img[mask == 255]
         img_gepotise = []
+        md_arr = []
         for i in range(-10, 10):
+            out = mask[min_y:max_y + 1, min_x:max_x + 1]
+            out = self.__rotateimage(out, i)
+            md = np.median(np.mean(out, axis=0))
+            #cv2.imwrite(str(i + 10) + '_' + str(math.floor(md)) + '_test.jpg', out)
+            md_arr.append(md)
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__rotateimage(out, i)
-            out = cv2.GaussianBlur(out, (5, 5), 0)
-            out = cv2.adaptiveThreshold(out, 200, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                        cv2.THRESH_BINARY, 9, 3)
-            out = cv2.resize(out, (152, 34)) / 255
+            out = cv2.resize(out, (152, 34))
+           # out = np.expand_dims(out.T, -1)/255
             img_gepotise.append(out)
-        return img_gepotise
+        mdmax = np.max(md_arr)
+        maxs = np.where((md_arr >= round(mdmax, 0)) & (md_arr <= mdmax))
+
+        return np.array(img_gepotise)[maxs]
+
+
+    def __clip_chars(self, images):
+        for img in images:
+            img = cv2.GaussianBlur(img, (3, 3), 0)
+            img = cv2.adaptiveThreshold(img, 200, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                        cv2.THRESH_BINARY, 9, 3)
+            img[img.shape[0] - 4: img.shape[0], 0:img.shape[1]] = 255
+            img[0: 4, 0:img.shape[1]] = 255
+            mn = []
+            for i in range(0, img.shape[1]):
+                mn.append(np.mean(img[:, i:i + 3]))
+                i += 4
+            md = np.mean(mn)
+            maxs = np.where(mn < md*0.8)
+            return
+            ret, img = cv2.threshold(img, 100, 255, 0)
+            im2, contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS)
+            for cnt in contours:
+                epsilon = 0.01 * cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                approx = np.reshape(approx, (approx.shape[0], 2))
+                min_x, min_y = np.min(approx, axis=0)
+                max_x, max_y = np.max(approx, axis=0)
+                if (max_x - min_x) > 0:
+                    koeff = math.fabs((max_y - min_y) / (max_x - min_x))
+                    if koeff <= 0.3 and cv2.contourArea(cnt) < 500.0:
+                        print(koeff, cv2.contourArea(cnt))
+                        cv2.fillPoly(img, pts=[cnt], color=(255, 255, 255))
+            cv2.imshow("Contour-r", cv2.resize(img, (img.shape[1] * 3, img.shape[0] * 3)))
+            cv2.waitKey(2000)
+            im2, contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS)
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            for cnt in contours:
+                epsilon = 0.05 * cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                approx = np.reshape(approx, (approx.shape[0], 2))
+                min_x, min_y = np.min(approx, axis=0)
+                max_x, max_y = np.max(approx, axis=0)
+                if (max_x - min_x) > 0:
+                    koeff = math.fabs((max_y - min_y) / (max_x - min_x))
+                    if 0.5 < koeff < 2.2 and cv2.contourArea(cnt) > 80:
+                        print(koeff, max_x - min_x)
+                        cv2.rectangle(img, (min_x, min_y), (max_x, max_y), (0, 0, 255), 1)
+                # cv2.drawContours(canvas, approx, -1, (0, 255, 0), 1)
+            cv2.imshow("Contour", cv2.resize(img, (img.shape[1] * 3, img.shape[0] * 3)))
+            cv2.waitKey(2000)
 
 
     def __rotateimage(self, img, angle):
@@ -73,15 +126,19 @@ class RecognizeLp(object):
 
 
     def __ocr_license_plate(self, imgs):
-        imgs = np.expand_dims(imgs, 0)
         net_inp = self.ocrlp.get_layer(name='the_input').input
         net_out = self.ocrlp.get_layer(name='softmax').output
         net_out_value = sess.run(net_out, feed_dict={net_inp: imgs})
-        snn1text = self.__decode_batch(net_out_value)
+        lptext = self.__decode_batch(net_out_value)
+        print(lptext)
 
-    def recognize(self, image):
-        img = self.__detect_lp(image)
-        self.__ocr_license_plate(img)
+    def recognize(self, image, file):
+        img = self.__detect_lp(image, file)
+        if img is not None:
+            self.__clip_chars(img)
+            #self.__ocr_license_plate(img)
+        else:
+            print('bad!!!')
 
     def ctc_lambda_func(self, args):
         y_pred, labels, input_length, label_length = args
@@ -115,85 +172,5 @@ class RecognizeLp(object):
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
         return loaded_model
 
-    def Unet(size):
-        inputs = Input(size)
-        conv1 = BatchNormalization()(inputs)
-        conv1 = Conv2D(32, (3, 3), padding='same')(conv1)
-        conv1 = BatchNormalization()(conv1)
-        conv1 = ELU()(conv1)
-        conv1 = Conv2D(32, (3, 3), padding='same')(conv1)
-        conv1 = BatchNormalization()(conv1)
-        conv1 = ELU()(conv1)
-        pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-
-        conv2 = Conv2D(64, (3, 3), padding='same')(pool1)
-        conv2 = BatchNormalization()(conv2)
-        conv2 = ELU()(conv2)
-        conv2 = Conv2D(64, (3, 3), padding='same')(conv2)
-        conv2 = BatchNormalization()(conv2)
-        conv2 = ELU()(conv2)
-        pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-
-        conv3 = Conv2D(128, (3, 3), padding='same')(pool2)
-        conv3 = BatchNormalization()(conv3)
-        conv3 = ELU()(conv3)
-        conv3 = Conv2D(128, (3, 3), padding='same')(conv3)
-        conv3 = BatchNormalization()(conv3)
-        conv3 = ELU()(conv3)
-        pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-
-        conv4 = Conv2D(256, (3, 3), padding='same')(pool3)
-        conv4 = BatchNormalization()(conv4)
-        conv4 = ELU()(conv4)
-        conv4 = Conv2D(256, (3, 3), padding='same')(conv4)
-        conv4 = BatchNormalization()(conv4)
-        conv4 = ELU()(conv4)
-
-        pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
-
-        conv5 = Conv2D(512, (3, 3), padding='same')(pool4)
-        conv5 = BatchNormalization()(conv5)
-        conv5 = ELU()(conv5)
-        conv5 = Conv2D(512, (3, 3), padding='same')(conv5)
-        conv5 = BatchNormalization()(conv5)
-        conv5 = ELU()(conv5)
-
-        up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), conv4], axis=3)
-        conv6 = Conv2D(256, (3, 3), padding='same')(up6)
-        conv6 = BatchNormalization()(conv6)
-        conv6 = ELU()(conv6)
-        conv6 = Conv2D(256, (3, 3), padding='same')(conv6)
-        conv6 = BatchNormalization()(conv6)
-        conv6 = ELU()(conv6)
-
-        up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), conv3], axis=3)
-        conv7 = Conv2D(128, (3, 3), padding='same')(up7)
-        conv7 = BatchNormalization()(conv7)
-        conv7 = ELU()(conv7)
-        conv7 = Conv2D(128, (3, 3), padding='same')(conv7)
-        conv7 = BatchNormalization()(conv7)
-        conv7 = ELU()(conv7)
-
-        up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), conv2], axis=3)
-        conv8 = Conv2D(64, (3, 3), padding='same')(up8)
-        conv8 = BatchNormalization()(conv8)
-        conv8 = ELU()(conv8)
-        conv8 = Conv2D(64, (3, 3), padding='same')(conv8)
-        conv8 = BatchNormalization()(conv8)
-        conv8 = ELU()(conv8)
-
-        up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), conv1], axis=3)
-        conv9 = Conv2D(32, (3, 3), padding='same')(up9)
-        conv9 = BatchNormalization()(conv9)
-        conv9 = ELU()(conv9)
-        conv9 = Conv2D(32, (3, 3), padding='same')(conv9)
-        conv9 = BatchNormalization()(conv9)
-        conv9 = ELU()(conv9)
-
-        conv10 = Conv2D(1, 1, activation='sigmoid')(conv9)
-
-        model = Model(inputs=inputs, outputs=conv10)
-        model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
-        return model
 
 
