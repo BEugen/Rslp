@@ -2,8 +2,8 @@ import os
 import recognize
 import cv2
 
-IMG_PATH = '/mnt/misk/misk/lplate/data/test_img_track'
-
+IMG_PATH = '/mnt/misk/misk/lplate/data/data_rt/1'
+IMG_FOR_OCR = '/mnt/misk/misk/lplate/chars'
 
 
 def main():
@@ -11,8 +11,9 @@ def main():
     for file in os.listdir(IMG_PATH):
         fp = os.path.join(IMG_PATH, file)
         img = cv2.imread(fp, cv2.IMREAD_GRAYSCALE)
-        fn = os.path.splitext(file)[0]
-        rc.recognize(img, fn)
+        img = cv2.resize(img, (128, 64))
+        fn = os.path.splitext(file)[0].split('_')
+        rc.image_conversion(img, IMG_FOR_OCR, fn[len(fn)-1])
 
 
 if __name__ == '__main__':
