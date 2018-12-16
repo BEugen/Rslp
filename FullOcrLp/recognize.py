@@ -19,6 +19,7 @@ PREDICT_DETECT_LEVEL = 0.7
 
 class RecognizeLp(object):
     def __init__(self):
+        self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
         self.nn_ocr_lp = 'model-ocr-lp'
@@ -194,9 +195,10 @@ class RecognizeLp(object):
                     os.makedirs(pr)
                 img = self.__image_normalisation(images[i])
                 if img is not None:
-                    cv2.imwrite(os.path.join(pr, self._random_file_name()) + '_' + lp_number + '_'
+                    cv2.imwrite(os.path.join(pr, self._random_file_name()) + str(self.cntf) + '_' + lp_number + '_'
                                 + lp_number[ch] + '.jpg', img)
                     ch += 1
+                    self.cntf += 1
 
     def __image_rotate(self, img, angle):
         image_center = tuple(np.array(img.shape[1::-1]) / 2)
