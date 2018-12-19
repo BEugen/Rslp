@@ -116,27 +116,6 @@ class RecognizeLp(object):
             img[0:l_bot, :] = 255
         return img
 
-    def __img_crop(self, img, mean_size=2, level_blank=2, char_bot_off=1, char_top_off=1, invert=False):
-        mean_imgs = []
-        for i in range(0, img.shape[0]):
-            mean_imgs.append(np.mean(img[i:i + mean_size, :]))
-            i += mean_size
-        index = np.where(mean_imgs >= np.int32(level_blank)) if invert else np.where(mean_imgs <= np.int32(level_blank))
-        hh = int(img.shape[0] * 0.5)
-        index = np.squeeze(index, -1)
-        sl = index[index > hh]
-        l_top = np.min(sl) - char_top_off if len(sl) > 0 else img.shape[0] - char_top_off
-        l_top = l_top if l_top > 0 else img.shape[0] - char_top_off
-        sl = index[index < hh]
-        l_bot = np.max(sl) + char_bot_off if len(sl) > 0 else char_bot_off
-        l_bot = l_bot if l_bot > 0 else char_bot_off
-        w = img.shape[1]
-        h = l_top - l_bot
-        h = h if h >= 0 else char_top_off + char_bot_off
-        imc = np.zeros((h, w))
-        imc[:, :] = img[l_bot:l_top, :]
-        return np.uint8(imc)
-
     def __img_split(self, images, img_max_lenght=16):
         img_wb = []
         for i in range(0, len(images)):
