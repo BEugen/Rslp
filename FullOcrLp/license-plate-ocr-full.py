@@ -2,7 +2,7 @@ import os
 import recognize
 import cv2
 
-IMG_PATH = '/home/eugen/Загрузки/test-4850/archive/experiment001/AutoVis/train/img'
+IMG_PATH = 'E:/temp/images'
 IMG_FOR_OCR = '/mnt/misk/misk/lplate/chars'
 
 

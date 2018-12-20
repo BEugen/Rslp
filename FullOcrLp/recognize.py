@@ -59,8 +59,9 @@ class RecognizeLp(object):
         for i in range(-10, 10):
             out = mask[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
-            md = np.median(np.mean(out, axis=0))
-            # cv2.imwrite(str(i + 10) + '_' + str(math.floor(md)) + '_test.jpg', out)
+            md = np.median(np.mean(out, axis=1))
+            #print(md)
+            #cv2.imwrite(str(i + 10) + '_' + str(round(md, 3)) + '_test.jpg', out)
             md_arr.append(md)
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
@@ -68,7 +69,7 @@ class RecognizeLp(object):
             # out = np.expand_dims(out.T, -1)/255
             img_gepotise.append(out)
         mdmax = np.max(md_arr)
-        maxs = np.where((md_arr >= round(mdmax, 0)) & (md_arr <= mdmax))
+        maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
         return np.array(img_gepotise)[maxs]
 
     def __char_crop(self, img, mean_size=3, median_k_a=1.1, pix_shift_back=2, pix_shoft_forw=4,
@@ -205,18 +206,26 @@ class RecognizeLp(object):
         images = self.__char_crop(image)
         images = self.__img_split(images)
         for i in range(0, len(images)):
-            images[i] = self.__img_crop(images[i])
-            if image[i] is None:
+            img = self.__img_crop(images[i])
+            if img is None:
                 continue
-            images[i] = self.__img_crop(images[i], level_blank=251, invert=True)
-            if image[i] is None:
+            img = self.__img_crop(img, level_blank=251, invert=True)
+            if img is None:
                 continue
-            images[i] = self.__img_crop_next(images[i])
-            if image[i] is None:
+            img = self.__image_normalisation(img)
+            if img is None:
                 continue
-            images[i] = self.__img_crop_next(images[i], axis=1)
-            if image[i] is None:
+            img = self.__img_crop_next(img)
+            if img is None:
                 continue
+            img = self.__img_crop_next(img, axis=1)
+            if img is None:
+                continue
+            imr = np.zeros((64, 64))
+            yo = int(0.5 * 64 - img.shape[0] * 0.5)
+            xo = int(0.5 * 64 - img.shape[1] * 0.5)
+            imr[yo:img.shape[0] + yo, xo:img.shape[1] + xo] = img[0:img.shape[0], 0:img.shape[1]]
+            images[i] = imr
         return images
 
     def __image_rotate(self, img, angle):
@@ -226,15 +235,17 @@ class RecognizeLp(object):
         return result
 
     def __image_ocr(self, images):
-        predict = self.ocrlp.predict(images)[0]
+        images = np.array(images)/255
+        images = np.reshape(images, images.shape + (1, ))
+        predict = self.ocrlp.predict(images)
         return predict
 
     def recognize(self, image, file):
         img = self.__detect_lp(image, file)
         if img is not None:
-            images = self.__image_conversion(img, file)
-            lp = self.__image_ocr(images)
-
+            for im in img:
+                images = self.__image_conversion(im, file)
+                lp = self.__image_ocr(images)
             # self.__ocr_license_plate(img)
         else:
             print('bad!!!')
@@ -262,11 +273,11 @@ class RecognizeLp(object):
 
 
     def __get_model_ocr_lp(self):
-        json_file = open(self.folder_nn + self.nn_detect_lp + '.json', 'r')
+        json_file = open(self.folder_nn + self.nn_ocr_lp + '.json', 'r')
         loaded_model_json = json_file.read()
         json_file.close()
         loaded_model = model_from_json(loaded_model_json)
-        loaded_model.load_weights(self.folder_nn + self.nn_detect_lp + '.h5')
+        loaded_model.load_weights(self.folder_nn + self.nn_ocr_lp + '.h5')
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')
         return loaded_model
 
