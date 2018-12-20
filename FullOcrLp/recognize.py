@@ -27,6 +27,7 @@ class RecognizeLp(object):
         self.max_len = LP_LETTERS
         self.pdl = PREDICT_DETECT_LEVEL
         self.dlp = self.__get_model_detect_lp()
+        self.ocrlp = self.__get_model_ocr_lp()
 
     def __detect_lp(self, img, file):
         img_crop = cv2.resize(img, (224, 224))
@@ -68,7 +69,6 @@ class RecognizeLp(object):
             img_gepotise.append(out)
         mdmax = np.max(md_arr)
         maxs = np.where((md_arr >= round(mdmax, 0)) & (md_arr <= mdmax))
-
         return np.array(img_gepotise)[maxs]
 
     def __char_crop(self, img, mean_size=3, median_k_a=1.1, pix_shift_back=2, pix_shoft_forw=4,
@@ -135,6 +135,51 @@ class RecognizeLp(object):
 
     #         cv2.imshow("Contour", cv2.resize(img, (img.shape[1] * 3, img.shape[0] * 3)))
     #         cv2.waitKey(2000)
+    def __img_crop(self, img, mean_size=2, level_blank=2, invert=False):
+        mean_imgs = []
+        for i in range(0, img.shape[0]):
+            mean_imgs.append(np.mean(img[i:i + mean_size, :]))
+            i += mean_size
+        index = np.where(mean_imgs >= np.int32(level_blank)) if invert else np.where(mean_imgs <= np.int32(level_blank))
+        hh = img.shape[0] * 0.5
+        index = np.squeeze(index, -1)
+        sl = index[index >= hh]
+        l_top = np.min(sl) - 1 if len(sl) > 0 else img.shape[0] - 1
+        sl = index[index <= hh]
+        l_bot = np.max(sl) + 1 if len(sl) > 0 else 1
+        w = img.shape[1]
+        h = l_top - l_bot
+        imc = np.zeros((h, w))
+        imc[:, :] = img[l_bot:l_top, :]
+        return np.uint8(imc)
+
+    def __img_crop_next(self, img, level_blank=5, axis=0):
+        try:
+            mean_imgs = np.mean(img, axis=axis)
+            index = np.where(mean_imgs <= level_blank)
+            if axis == 0:
+                hw = int(np.mean(np.where(mean_imgs[20:44] == np.max(mean_imgs[20:44])))) + 20
+            else:
+                hw = img.shape[0] * 0.5
+            shape_img = img.shape[1] if axis > 0 else img.shape[0]
+            index = np.squeeze(index, -1)
+            sl = index[index > hw]
+            l_top = np.min(sl) - 1 if len(sl) > 0 else shape_img
+            l_top = l_top if l_top >= 0 else shape_img
+            sl = index[index < hw]
+            l_bot = np.max(sl) + 1 if len(sl) > 0 else 0
+            l_bot = l_bot if l_bot >= 0 else 0
+            w = img.shape[1] if axis > 0 else l_top - l_bot
+            h = img.shape[0] if axis == 0 else l_top - l_bot
+            if h < 0:
+                h = img.shape[0]
+            if w < 0:
+                w = img.shape[1]
+            imc = np.zeros((h, w))
+            imc[:, :] = img[l_bot:l_top, :] if axis > 0 else img[:, l_bot:l_top]
+            return imc
+        except:
+            return None
 
     def __image_normalisation(self, image):
         try:
@@ -149,11 +194,8 @@ class RecognizeLp(object):
         except:
             return None
 
-
-    def image_conversion(self, image, path, lp_number):
+    def __image_conversion(self, image, lp_number):
         print(lp_number)
-        #img = cv2.imread('/mnt/misk/misk/lplate/data/data_rt/1/0_431_P726EX35.bmp', cv2.IMREAD_GRAYSCALE)
-        #img = cv2.resize(img, (128, 64))
         kernel = np.ones((1, 1), np.uint8)
         image = cv2.erode(image, kernel, iterations=1)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 1))
@@ -162,22 +204,20 @@ class RecognizeLp(object):
         image = self.__lp_crop(image)
         images = self.__char_crop(image)
         images = self.__img_split(images)
-        ch = 0
         for i in range(0, len(images)):
             images[i] = self.__img_crop(images[i])
+            if image[i] is None:
+                continue
             images[i] = self.__img_crop(images[i], level_blank=251, invert=True)
-            if images[i].shape[0] > 0 and images[i].shape[1] > 0 and 0.6 < images[i].shape[1] / images[i].shape[0] < 5.0:
-                if ch >= len(lp_number):
-                    break
-                pr = os.path.join(path, lp_number[ch])
-                if not os.path.exists(pr):
-                    os.makedirs(pr)
-                img = self.__image_normalisation(images[i])
-                if img is not None:
-                    cv2.imwrite(os.path.join(pr, self._random_file_name()) + str(self.cntf) + '_' + lp_number + '_'
-                                + lp_number[ch] + '.jpg', img)
-                    ch += 1
-                    self.cntf += 1
+            if image[i] is None:
+                continue
+            images[i] = self.__img_crop_next(images[i])
+            if image[i] is None:
+                continue
+            images[i] = self.__img_crop_next(images[i], axis=1)
+            if image[i] is None:
+                continue
+        return images
 
     def __image_rotate(self, img, angle):
         image_center = tuple(np.array(img.shape[1::-1]) / 2)
@@ -185,10 +225,16 @@ class RecognizeLp(object):
         result = cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR)
         return result
 
+    def __image_ocr(self, images):
+        predict = self.ocrlp.predict(images)[0]
+        return predict
+
     def recognize(self, image, file):
         img = self.__detect_lp(image, file)
         if img is not None:
-            self.__clip_chars(img)
+            images = self.__image_conversion(img, file)
+            lp = self.__image_ocr(images)
+
             # self.__ocr_license_plate(img)
         else:
             print('bad!!!')
@@ -212,6 +258,16 @@ class RecognizeLp(object):
         loaded_model = model_from_json(loaded_model_json)
         loaded_model.load_weights(self.folder_nn + self.nn_detect_lp + '.h5')
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+        return loaded_model
+
+
+    def __get_model_ocr_lp(self):
+        json_file = open(self.folder_nn + self.nn_detect_lp + '.json', 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+        loaded_model = model_from_json(loaded_model_json)
+        loaded_model.load_weights(self.folder_nn + self.nn_detect_lp + '.h5')
+        loaded_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')
         return loaded_model
 
     def _random_file_name(self):

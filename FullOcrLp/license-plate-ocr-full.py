@@ -11,9 +11,8 @@ def main():
     for file in os.listdir(IMG_PATH):
         fp = os.path.join(IMG_PATH, file)
         img = cv2.imread(fp, cv2.IMREAD_GRAYSCALE)
-        img = cv2.resize(img, (128, 64))
         fn = os.path.splitext(file)[0].split('_')
-        rc.image_conversion(img, IMG_FOR_OCR, fn[len(fn)-1])
+        rc.recognize(img, fn)
 
 
 if __name__ == '__main__':
