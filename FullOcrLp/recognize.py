@@ -5,8 +5,9 @@ import itertools
 from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
-import tempfile
 import random
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 sess = tf.Session()
 K.set_session(sess)
@@ -28,6 +29,17 @@ class RecognizeLp(object):
         self.pdl = PREDICT_DETECT_LEVEL
         self.dlp = self.__get_model_detect_lp()
         self.ocrlp = self.__get_model_ocr_lp()
+
+
+    def __plot_images(self, images, grey):
+        fig = plt.figure(figsize=(15, 18))
+        for i in range(min(16, len(images))):
+            fig.add_subplot(4, 4, i + 1)
+            if grey:
+                plt.imshow(images[i], cmap='gray')
+            else:
+                plt.imshow(images[i])
+        plt.show()
 
     def __detect_lp(self, img, file):
         img_crop = cv2.resize(img, (224, 224))
@@ -72,8 +84,8 @@ class RecognizeLp(object):
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
         return np.array(img_gepotise)[maxs]
 
-    def __char_crop(self, img, mean_size=3, median_k_a=1.1, pix_shift_back=2, pix_shoft_forw=4,
-                    char_size_min=5.5):
+    def __char_crop(self, img, mean_size=3, median_k_a=1.1, pix_shift_back=2, pix_shoft_forw=2,
+                    char_size_min=6):
         mean_imgs = []
         imgs = []
         for i in range(0, img.shape[1]):
@@ -117,7 +129,7 @@ class RecognizeLp(object):
             img[0:l_bot, :] = 255
         return img
 
-    def __img_split(self, images, img_max_lenght=16):
+    def __img_split(self, images, img_max_lenght=20):
         img_wb = []
         for i in range(0, len(images)):
             if images[i].shape[1] > img_max_lenght:
@@ -197,14 +209,17 @@ class RecognizeLp(object):
 
     def __image_conversion(self, image, lp_number):
         print(lp_number)
+        image = cv2.GaussianBlur(image, (5, 5), 0)
+        image = cv2.adaptiveThreshold(image, 200, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 9, 3)
         kernel = np.ones((1, 1), np.uint8)
         image = cv2.erode(image, kernel, iterations=1)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 1))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 1))
         ret, image = cv2.threshold(image, 100, 255, 0)
         image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
         image = self.__lp_crop(image)
         images = self.__char_crop(image)
         images = self.__img_split(images)
+        self.__plot_images(images, True)
         for i in range(0, len(images)):
             img = self.__img_crop(images[i])
             if img is None:
