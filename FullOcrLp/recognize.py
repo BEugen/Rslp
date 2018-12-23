@@ -19,7 +19,7 @@ PREDICT_DETECT_LEVEL = 0.7
 
 
 class RecognizeLp(object):
-    def __init__(self):
+    def __init__(self)   :
         self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
