@@ -89,7 +89,7 @@ class RecognizeLp(object):
         mask_index_split = []
         kernel = np.ones((2, 2), np.uint8)
         img = cv2.erode(img, kernel, iterations=2)
-        ret, img = cv2.threshold(img, 50, 255, 1)
+        ret, img = cv2.threshold(img, 100, 255, 1)
         mean_imgs = np.mean(img, axis=0)
         imgplot = plt.imshow(img, cmap='gray')
         plt.plot(mean_imgs)
@@ -151,6 +151,8 @@ class RecognizeLp(object):
 
     def __image_conversion(self, imglp, lp_number):
         print(lp_number)
+        plt.imshow(imglp, cmap='gray')
+        plt.show()
         images = self.__get_split_mask(imglp)
         kernel = np.ones((3, 1), np.uint8)
         for i in range(0, len(images)):
