@@ -84,22 +84,24 @@ class RecognizeLp(object):
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
         return np.array(img_gepotise)[maxs]
 
-    def __get_split_mask(self, image, char_size_min=8, char_size=10):
-        img = cv2.resize(image, (128, 64))
-        mask_index_split = []
-        kernel = np.ones((2, 2), np.uint8)
-        img = cv2.erode(img, kernel, iterations=2)
-        ret, img = cv2.threshold(img, 100, 255, 1)
+    def __get_split_mask(self, image, lp_number, char_size_min=11, char_size=12):
+        img = cv2.GaussianBlur(image, (23, 23), 0)
+        img = cv2.subtract(img, image)
+        cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
+        ret, img = cv2.threshold(img, 5, 255, 0)
+        img = cv2.resize(img, (128, 64))
+        img = self.__img_crop_next(img, level_blank=200, axis=1, lt=False)
         mean_imgs = np.mean(img, axis=0)
-        imgplot = plt.imshow(img, cmap='gray')
-        plt.plot(mean_imgs)
-        plt.show()
+        #plt.imshow(img, cmap='gray')
+        #plt.plot(mean_imgs)
+        #plt.show()
+        mask_index_split = []
         i = 0
         fi = int(char_size / 2)
         index = np.where(mean_imgs[i:i + fi] == np.min(mean_imgs[i:i + fi]))
-        i = np.min(index)
+        i = np.max(index)
         mask_index_split.append(i)
-        while (i + char_size) < len(mean_imgs):
+        while i < len(mean_imgs):
             index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
             n = np.min(index) + i
             if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
@@ -108,19 +110,26 @@ class RecognizeLp(object):
                 mask_index_split.append(n)
                 i = n + int(char_size / 2)
         images = []
+        print(mask_index_split)
         for i in range(1, len(mask_index_split)):
             images.append(img[:, mask_index_split[i - 1]: mask_index_split[i]])
         return images
 
-    def __img_crop_next(self, img, level_blank=5, axis=0, lt=True):
+    def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
         mean_imgs = np.mean(img, axis=axis)
+        hwi = np.where(mean_imgs >= level_find) if lt else np.where(mean_imgs <= level_find)
         index = np.where(mean_imgs <= level_blank) if lt else np.where(mean_imgs >= level_blank)
-        if axis == 0:
-            hw = img.shape[1] * 0.5
+        if len(hwi) == 0:
+            if axis == 0:
+                hw = img.shape[1] * 0.5
+            else:
+                hw = img.shape[0] * 0.5
         else:
-            hw = img.shape[0] * 0.5
+            hwi = hwi[0] if len(hwi) > 0 else []
+            i = int(len(hwi)*0.5)
+            hw = hwi[i: i+1]
         shape_img = img.shape[1] if axis == 0 else img.shape[0]
-        index = np.squeeze(index, -1)
+        index = index[0] if len(index) > 0 else []
         sl = index[index > hw]
         l_top = np.min(sl) - 1 if len(sl) > 0 else shape_img
         l_top = l_top if l_top >= 0 else shape_img
@@ -129,7 +138,6 @@ class RecognizeLp(object):
         l_bot = l_bot if l_bot >= 0 else 0
         w = img.shape[1] if axis > 0 else l_top - l_bot
         h = img.shape[0] if axis == 0 else l_top - l_bot
-        print(w, h)
         if h < 0:
             h = img.shape[0]
         if w < 0:
@@ -140,7 +148,7 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
-            image = cv2.resize(image, (24, 38))
+            image = cv2.resize(image, (28, 42))
             imr = np.zeros((64, 64))
             yo = int(0.5 * 64 - image.shape[0] * 0.5)
             xo = int(0.5 * 64 - image.shape[1] * 0.5)
@@ -151,16 +159,19 @@ class RecognizeLp(object):
 
     def __image_conversion(self, imglp, lp_number):
         print(lp_number)
-        plt.imshow(imglp, cmap='gray')
-        plt.show()
-        images = self.__get_split_mask(imglp)
-        kernel = np.ones((3, 1), np.uint8)
+        images = self.__get_split_mask(imglp, lp_number)
         for i in range(0, len(images)):
-            images[i] = self.__img_crop_next(images[i], level_blank=240, axis=1, lt=False)
-            images[i] = self.__img_crop_next(images[i], axis=0)
-            images[i] = cv2.erode(images[i], kernel, iterations=2)
-            images[i] = self.__img_crop_next(images[i], axis=1)
+            images[i] = self.__img_crop_next(images[i], level_blank=230, axis=1, lt=False)
+            images[i] = self.__img_crop_next(images[i], level_blank=10, axis=1)
+            images[i] = self.__img_crop_next(images[i], level_blank=20, axis=0)
             images[i] = self.__image_normalisation(images[i])
+            plt.imshow(images[i], cmap='gray')
+            plt.show()
+
+            #images[i] = self.__img_crop_next(images[i], axis=0)
+            #images[i] = self.__img_crop_next(images[i], axis=1)
+            #images[i] = self.__image_normalisation(images[i])
+
         return images
 
     def __image_rotate(self, img, angle):
