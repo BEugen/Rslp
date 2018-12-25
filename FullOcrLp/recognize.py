@@ -72,8 +72,6 @@ class RecognizeLp(object):
             out = mask[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
             md = np.median(np.mean(out, axis=1))
-            #print(md)
-            #cv2.imwrite(str(i + 10) + '_' + str(round(md, 3)) + '_test.jpg', out)
             md_arr.append(md)
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
@@ -85,12 +83,20 @@ class RecognizeLp(object):
         return np.array(img_gepotise)[maxs]
 
     def __get_split_mask(self, image, lp_number, char_size_min=11, char_size=12):
-        img = cv2.GaussianBlur(image, (23, 23), 0)
-        img = cv2.subtract(img, image)
+        #img = cv2.GaussianBlur(image, (23, 23), 0)
+        #img = cv2.subtract(img, image)
+        #cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
+        #ret, img = cv2.threshold(img, 5, 255, 0)
+        imgb = cv2.GaussianBlur(image, (9, 9), 100)
+        img = cv2.subtract(imgb, image)
         cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
+        img = cv2.GaussianBlur(img, (1, 1), 10)
         ret, img = cv2.threshold(img, 5, 255, 0)
+        mean_imgs = np.mean(np.mean(img, axis=1)) * 1.5
+        print(mean_imgs)
+        img = self.__img_crop_next(img, level_blank=mean_imgs, axis=1, lt=False)
         img = cv2.resize(img, (128, 64))
-        img = self.__img_crop_next(img, level_blank=200, axis=1, lt=False)
+        #img = self.__img_crop_next(img, level_blank=200, axis=1, lt=False)
         mean_imgs = np.mean(img, axis=0)
         #plt.imshow(img, cmap='gray')
         #plt.plot(mean_imgs)
@@ -148,7 +154,7 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
-            image = cv2.resize(image, (28, 42))
+            image = cv2.resize(image, (24, 38))
             imr = np.zeros((64, 64))
             yo = int(0.5 * 64 - image.shape[0] * 0.5)
             xo = int(0.5 * 64 - image.shape[1] * 0.5)
