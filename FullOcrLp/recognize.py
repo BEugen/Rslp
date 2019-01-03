@@ -7,13 +7,14 @@ from keras.layers import *
 from keras.optimizers import *
 import random
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+import uuid
 
 sess = tf.Session()
 K.set_session(sess)
 
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
+IMG_PATH_ROOT = 'E:/temp/chars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.7
 
@@ -99,7 +100,6 @@ class RecognizeLp(object):
         while (i + char_size) < len(mean_imgs):
             index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
             n = np.min(index) + i
-            print(i, n, n - i)
             if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
                 i += char_size
             else:
@@ -167,13 +167,12 @@ class RecognizeLp(object):
         fb = len(mean_imgs) if fb > len(mean_imgs) else fb
         mean_a = mean_imgs[:fa]
         mean_b = mean_imgs[fb:]
+        print("Ma={0}, Mb={1}".format(len(mean_a), len(mean_b)))
         index = np.where((mean_a <= np.min(mean_a)) & (mean_a <= level))
         index = 0 if len(index[0]) == 0 else np.max(index)
-        print(index)
         l_bot = index if index > 0 else 0
         index = np.where((mean_b <= np.min(mean_b)) & (mean_b <= level))
         index = hw if len(index[0]) == 0 else np.min(index) + fb
-        print(index)
         l_top = index if index <= hw else hw
         w = img.shape[1] if axis > 0 else l_top - l_bot
         h = img.shape[0] if axis == 0 else l_top - l_bot
@@ -228,7 +227,7 @@ class RecognizeLp(object):
             ret, out = cv2.threshold(out, 100, 255, 0)
             out = self.__img_crop_next_2(out, axis=1)
             out = self.__img_crop_next_2(out, axis=0)
-            images[i] = out
+            images[i] = self.__image_normalisation(out)
             # images[i] = img_crop_next_2(images[i], axis=1)
             # images[i] = img_crop_next_2(images[i], axis=0)
 
@@ -241,10 +240,13 @@ class RecognizeLp(object):
         return result
 
     def __image_ocr(self, images):
-        images = np.array(images)/255
-        images = np.reshape(images, images.shape + (1, ))
-        predict = self.ocrlp.predict_classes(images)
-        return predict
+        try:
+            images = np.array(images)/255
+            images = np.reshape(images, images.shape + (1, ))
+            predict = self.ocrlp.predict_classes(images)
+            return predict
+        except:
+            return None
 
     def recognize(self, image, file):
         img = self.__detect_lp(image, file)
@@ -252,9 +254,16 @@ class RecognizeLp(object):
             for im in img:
                 images = self.__image_conversion(im, file)
                 lps = self.__image_ocr(images)
+                if lps is None:
+                    continue
                 number = ''
                 for ch in lps:
                     number += self.letters[ch]
+                for i in range(0, len(number)):
+                    folder = os.path.join(IMG_PATH_ROOT, number[i])
+                    if not os.path.exists(folder):
+                        os.makedirs(folder)
+                    cv2.imwrite(folder + '/' + str(uuid.uuid4()) + '.jpg', images[i])
                 print(number)
         else:
             print('bad!!!')

@@ -2,7 +2,7 @@ import os
 import recognize
 import cv2
 
-IMG_PATH = '/mnt/misk/misk/lplate/images'
+IMG_PATH = 'E:/temp/images'
 IMG_FOR_OCR = '/mnt/misk/misk/lplate/chars'
 
 
