@@ -82,41 +82,30 @@ class RecognizeLp(object):
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
         return np.array(img_gepotise)[maxs]
 
-    def __get_split_mask(self, image, lp_number, char_size_min=11, char_size=12):
-        #img = cv2.GaussianBlur(image, (23, 23), 0)
-        #img = cv2.subtract(img, image)
-        #cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
-        #ret, img = cv2.threshold(img, 5, 255, 0)
+    def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10):
         imgb = cv2.GaussianBlur(image, (9, 9), 100)
         img = cv2.subtract(imgb, image)
         cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
         img = cv2.GaussianBlur(img, (1, 1), 10)
         ret, img = cv2.threshold(img, 5, 255, 0)
-        mean_imgs = np.mean(np.mean(img, axis=1)) * 1.5
-        print(mean_imgs)
-        img = self.__img_crop_next(img, level_blank=mean_imgs, axis=1, lt=False)
         img = cv2.resize(img, (128, 64))
-        #img = self.__img_crop_next(img, level_blank=200, axis=1, lt=False)
         mean_imgs = np.mean(img, axis=0)
-        #plt.imshow(img, cmap='gray')
-        #plt.plot(mean_imgs)
-        #plt.show()
         mask_index_split = []
         i = 0
         fi = int(char_size / 2)
         index = np.where(mean_imgs[i:i + fi] == np.min(mean_imgs[i:i + fi]))
         i = np.max(index)
         mask_index_split.append(i)
-        while i < len(mean_imgs):
+        while (i + char_size) < len(mean_imgs):
             index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
             n = np.min(index) + i
+            print(i, n, n - i)
             if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
                 i += char_size
             else:
                 mask_index_split.append(n)
                 i = n + int(char_size / 2)
         images = []
-        print(mask_index_split)
         for i in range(1, len(mask_index_split)):
             images.append(img[:, mask_index_split[i - 1]: mask_index_split[i]])
         return images
@@ -152,6 +141,56 @@ class RecognizeLp(object):
         imc[:, :] = img[l_bot:l_top, :] if axis > 0 else img[:, l_bot:l_top]
         return imc
 
+    def __img_crop_next_2(self, img, axis=0, level=5, findk=0.15):
+        mean_imgs = np.mean(img, axis=axis)
+        hw = (img.shape[0] if axis else img.shape[1])
+        fa = int(hw * 0.5 - hw * 0.5 * findk)
+        fb = int(hw * 0.5 + hw * 0.5 * findk)
+        fa = 0 if fa < 0 else fa
+        fb = len(mean_imgs) if fb > len(mean_imgs) else fb
+        mean_a = mean_imgs[:fa]
+        mean_b = mean_imgs[fb:]
+        mni = np.median(mean_imgs)
+        wsa, ima = self.__max_window(mean_a, mni, 0)
+        wsb, imb = self.__max_window(mean_b, mni, fb)
+        fa = ima
+        fb = imb
+        if wsa == 0:
+            fa = imb
+        if wsb == 0:
+            fb = ima
+        if wsa * 2.5 < wsb:
+            fa = imb
+        if wsb * 2.5 < wsa:
+            fb = fa
+        fa = 0 if fa < 0 else fa
+        fb = len(mean_imgs) if fb > len(mean_imgs) else fb
+        mean_a = mean_imgs[:fa]
+        mean_b = mean_imgs[fb:]
+        index = np.where((mean_a <= np.min(mean_a)) & (mean_a <= level))
+        index = 0 if len(index[0]) == 0 else np.max(index)
+        print(index)
+        l_bot = index if index > 0 else 0
+        index = np.where((mean_b <= np.min(mean_b)) & (mean_b <= level))
+        index = hw if len(index[0]) == 0 else np.min(index) + fb
+        print(index)
+        l_top = index if index <= hw else hw
+        w = img.shape[1] if axis > 0 else l_top - l_bot
+        h = img.shape[0] if axis == 0 else l_top - l_bot
+        imc = np.zeros((h, w))
+        imc[:, :] = img[l_bot:l_top, :] if axis > 0 else img[:, l_bot:l_top]
+        return imc
+
+    def __max_window(self, data, level, offset=0):
+        index = np.where(data >= level)
+        if len(index) == 0 or len(index[0]) == 0:
+            return 0, 0
+        __index = index[0]
+        windows_size = __index[len(__index) - 1] - __index[0]
+        windows_max_value = int(np.mean(index)) + offset
+        return windows_size, windows_max_value
+
+
     def __image_normalisation(self, image):
         try:
             image = cv2.resize(image, (24, 38))
@@ -166,17 +205,32 @@ class RecognizeLp(object):
     def __image_conversion(self, imglp, lp_number):
         print(lp_number)
         images = self.__get_split_mask(imglp, lp_number)
+        kernel = np.ones((5, 1), np.uint8)
         for i in range(0, len(images)):
-            images[i] = self.__img_crop_next(images[i], level_blank=230, axis=1, lt=False)
-            images[i] = self.__img_crop_next(images[i], level_blank=10, axis=1)
-            images[i] = self.__img_crop_next(images[i], level_blank=20, axis=0)
-            images[i] = self.__image_normalisation(images[i])
-            plt.imshow(images[i], cmap='gray')
-            plt.show()
-
-            #images[i] = self.__img_crop_next(images[i], axis=0)
-            #images[i] = self.__img_crop_next(images[i], axis=1)
-            #images[i] = self.__image_normalisation(images[i])
+            img = cv2.erode(images[i].copy(), kernel, iterations=1)
+            (_, contours, _) = cv2.findContours(np.uint8(img), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+            if len(contours) == 0:
+                continue
+            cnt = contours[0]
+            max_area = cv2.contourArea(cnt)
+            for cont in contours:
+                if cv2.contourArea(cont) > max_area:
+                    cnt = cont
+                    max_area = cv2.contourArea(cont)
+            epsilon = 0.025 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            approx = np.reshape(approx, (approx.shape[0], 2))
+            min_x, min_y = np.min(approx, axis=0)
+            max_x, max_y = np.max(approx, axis=0)
+            out = np.zeros_like(img)
+            out[min_y:max_y, min_x:max_x] = 255
+            out[out == 255] = images[i][out == 255]
+            ret, out = cv2.threshold(out, 100, 255, 0)
+            out = self.__img_crop_next_2(out, axis=1)
+            out = self.__img_crop_next_2(out, axis=0)
+            images[i] = out
+            # images[i] = img_crop_next_2(images[i], axis=1)
+            # images[i] = img_crop_next_2(images[i], axis=0)
 
         return images
 
