@@ -32,8 +32,8 @@ class RecognizeLp(object):
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
-        self.index_chars = [12, 27, 40, 52, 62, 75, 90, 102, 112]
-
+        self.char_position = [10, 24, 37, 48.5, 62.5, 75.5, 87, 98.5, 111]
+                             # 0   1   2   3      4     5    6    7    8
     def __images_arr_init(self):
         self.images_arr = []
         for i in range(0, LP_MAX_LENGHT):
@@ -155,7 +155,7 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10, lfirstindex=30, level_split=12):
+    def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10, lfirstindex=30):
         img = cv2.resize(image, (128, 64))
         mean_imgs = np.mean(img, axis=0)
         fig = plt.figure(figsize=(15, 18))
@@ -166,8 +166,7 @@ class RecognizeLp(object):
         index = np.where(mean_imgs >= lfirstindex)
         i = int(np.min(index) - char_size/2)
         if i < 0:
-            index = np.where(mean_imgs[i:i + fi] == np.min(mean_imgs[i:i + fi]))
-            i = np.max(index)
+            i = 2
         mask_index_split.append(i)
         while (i + char_size) < len(mean_imgs):
             index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
@@ -186,12 +185,15 @@ class RecognizeLp(object):
         plt.scatter(mask_index_split, y, c='red', s=40)
         plt.show()
         print(mask_index_split)
+        dch = np.mean([mask_index_split[i] - mask_index_split[i-1] for i in range(1, len(mask_index_split))])*0.25
         for i in range(1, len(mask_index_split)):
-
-            idx = (self.index_chars >= np.uint32(mask_index_split[i-1])) * \
-                 (self.index_chars <= np.uint32(mask_index_split[i]))
-            index = np.max(np.where(idx))
-            print(index, idx)
+            ch = (mask_index_split[i] + mask_index_split[i-1])/2
+            for y in range(0, len(self.char_position)):
+                if self.char_position[y] - dch < ch <= self.char_position[y] + dch:
+                    idx = y
+                    print(idx, self.char_position[y] - dch, '<', self.char_position[y], ':', ch,
+                          '(', mask_index_split[i], '-', mask_index_split[i-1], ')', '<=', self.char_position[y] + dch)
+                    break
             images.append(img[:, mask_index_split[i - 1]: mask_index_split[i]])
         return images
 
@@ -290,6 +292,8 @@ class RecognizeLp(object):
         plt.imshow(imglp, cmap='gray')
         plt.show()
         imglp = self.__image_denoise(imglp)
+        plt.imshow(imglp, cmap='gray')
+        plt.show()
         images = self.__get_split_mask(imglp, lp_number)
         for i in range(0, len(images)):
             out = self.__img_crop_next_2(images[i], axis=1)
