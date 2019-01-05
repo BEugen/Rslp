@@ -8,6 +8,7 @@ from keras.optimizers import *
 import random
 import matplotlib.pyplot as plt
 import uuid
+import scipy.fftpack
 
 sess = tf.Session()
 K.set_session(sess)
@@ -16,7 +17,7 @@ LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
 IMG_PATH_ROOT = 'E:/temp/chars'
 LP_MAX_LENGHT = 9
-PREDICT_DETECT_LEVEL = 0.7
+PREDICT_DETECT_LEVEL = 0.55
 
 
 class RecognizeLp(object):
@@ -27,7 +28,7 @@ class RecognizeLp(object):
         self.nn_ocr_lp = 'model-ocr-lp'
         self.dlp = self.__get_model_detect_lp()
         self.ocrlp = self.__get_model_ocr_lp()
-        self.pdl = 0.7
+        self.pdl = PREDICT_DETECT_LEVEL
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
 
@@ -83,13 +84,74 @@ class RecognizeLp(object):
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
         return np.array(img_gepotise)[maxs]
 
+    def __image_clear_border(self, image, radius=3):
+        img = image.copy()
+        _, cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        (imgrows, imgcols) = image.shape
+        cntrs = []
+        for idx in np.arange(len(cntr)):
+            cnt = cntr[idx]
+            for pt in cnt:
+                rowcnt = pt[0][1]
+                colcnt = pt[0][0]
+                check1 = (0 <= rowcnt < radius) or (imgrows - 1 - radius <= rowcnt < imgrows)
+                check2 = (0 <= colcnt < radius) or (imgcols - 1 - radius <= colcnt < imgcols)
+                if check1 or check2:
+                    cntrs.append(idx)
+                    break
+        for idx in cntrs:
+            cv2.drawContours(img, cntr, idx, (0, 0, 0), -1)
+        return img
+
+    def __bw_area_open(self, image, areapixel=10):
+        img = image.copy()
+        _, cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        for idx in np.arange(len(cntr)):
+            area = cv2.contourArea(cntr[idx])
+            if 0 <= area <= areapixel:
+                cv2.drawContours(img, cntr, idx, (0, 0, 0), -1)
+        return img
+
+
+    def __image_denoise(self, image, areapixel=10, radius=3, gamma1=0.2, gamma2=1.5, sigma=10, levelthreh=50):
+        image = cv2.equalizeHist(image)
+        (rows, cols) = image.shape
+        img_expand = np.full((rows + 6, cols), 255)
+        img_expand[3:rows+3, :] = image[:, :]
+        (rows, cols) = img_expand.shape
+        imglogr = np.log1p(np.array(img_expand, dtype='float')/255)
+        # Create Gaussian mask of sigma 10
+        M = 2*rows + 1
+        N = 2*cols + 1
+        (X, Y) = np.meshgrid(np.linspace(0, N-1, N), np.linspace(0, M-1, M))
+        centerx = np.ceil(N/2)
+        centery = np.ceil(M/2)
+        gauss_numerator = (X - centerx)**2 + (Y - centery)**2
+        # Low pass and high pass filter
+        hlow = np.exp(-gauss_numerator/(2*sigma*sigma))
+        hhigh = 1 - hlow
+        hlowshift = scipy.fftpack.ifftshift(hlow.copy())
+        hhighshift = scipy.fftpack.ifftshift(hhigh.copy())
+
+        # filter image and crop
+        imagefl = scipy.fftpack.fft2(imglogr.copy(), (M, N))
+        imageoutlow = scipy.real(scipy.fftpack.ifft2(imagefl.copy()*hlowshift, (M, N)))
+        imageouthigh = scipy.real(scipy.fftpack.ifft2(imagefl.copy()*hhighshift, (M, N)))
+        imageout = gamma1*imageoutlow[0:rows, 0:cols] + gamma2*imageouthigh[0:rows, 0:cols]
+
+        #anti-log rescale to [0, 1]
+        imagehmf = np.expm1(imageout)
+        imagehmf = (imagehmf - np.min(imagehmf))/(np.max(imagehmf) - np.min(imagehmf))
+        imagehmf2 = np.array(255*imagehmf, dtype='uint8')
+        imagetreshold = imagehmf2 < levelthreh
+        imagetreshold = 255 * imagetreshold.astype('uint8')
+        img = self.__image_clear_border(imagetreshold, radius)
+        img = self.__bw_area_open(img, areapixel)
+        return img
+
+
     def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10):
-        imgb = cv2.GaussianBlur(image, (9, 9), 100)
-        img = cv2.subtract(imgb, image)
-        cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
-        img = cv2.GaussianBlur(img, (1, 1), 10)
-        ret, img = cv2.threshold(img, 5, 255, 0)
-        img = cv2.resize(img, (128, 64))
+        img = cv2.resize(image, (128, 64))
         mean_imgs = np.mean(img, axis=0)
         mask_index_split = []
         i = 0
@@ -189,7 +251,6 @@ class RecognizeLp(object):
         windows_max_value = int(np.mean(index)) + offset
         return windows_size, windows_max_value
 
-
     def __image_normalisation(self, image):
         try:
             image = cv2.resize(image, (24, 38))
@@ -203,40 +264,22 @@ class RecognizeLp(object):
 
     def __image_conversion(self, imglp, lp_number):
         print(lp_number)
+        plt.imshow(imglp, cmap='gray')
+        plt.show()
+        imglp = self.__image_denoise(imglp)
+        plt.imshow(imglp, cmap='gray')
+        plt.show()
         images = self.__get_split_mask(imglp, lp_number)
-        kernel = np.ones((5, 1), np.uint8)
         for i in range(0, len(images)):
-            img = cv2.erode(images[i].copy(), kernel, iterations=1)
-            (_, contours, _) = cv2.findContours(np.uint8(img), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
-            if len(contours) == 0:
-                continue
-            cnt = contours[0]
-            max_area = cv2.contourArea(cnt)
-            for cont in contours:
-                if cv2.contourArea(cont) > max_area:
-                    cnt = cont
-                    max_area = cv2.contourArea(cont)
-            epsilon = 0.025 * cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
-            approx = np.reshape(approx, (approx.shape[0], 2))
-            min_x, min_y = np.min(approx, axis=0)
-            max_x, max_y = np.max(approx, axis=0)
-            out = np.zeros_like(img)
-            out[min_y:max_y, min_x:max_x] = 255
-            out[out == 255] = images[i][out == 255]
-            ret, out = cv2.threshold(out, 100, 255, 0)
-            out = self.__img_crop_next_2(out, axis=1)
+            out = self.__img_crop_next_2(images[i], axis=1)
             out = self.__img_crop_next_2(out, axis=0)
             images[i] = self.__image_normalisation(out)
-            # images[i] = img_crop_next_2(images[i], axis=1)
-            # images[i] = img_crop_next_2(images[i], axis=0)
-
         return images
 
     def __image_rotate(self, img, angle):
         image_center = tuple(np.array(img.shape[1::-1]) / 2)
         rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-        result = cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR)
+        result = cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=255)
         return result
 
     def __image_ocr(self, images):
@@ -288,7 +331,6 @@ class RecognizeLp(object):
         loaded_model.load_weights(self.folder_nn + self.nn_detect_lp + '.h5')
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
         return loaded_model
-
 
     def __get_model_ocr_lp(self):
         json_file = open(self.folder_nn + self.nn_ocr_lp + '.json', 'r')
