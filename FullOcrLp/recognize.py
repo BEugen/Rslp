@@ -6,7 +6,7 @@ from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 import random
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
 
@@ -33,21 +33,22 @@ class RecognizeLp(object):
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
         self.char_position = [11, 24, 37, 50, 64.25, 79, 93, 105.5, 111]
-                             # 0   1   2   3    4     5   6    7     8
+                            # 0   1   2   3    4     5   6    7     8
+
     def __images_arr_init(self):
         self.images_arr = []
         for i in range(0, LP_MAX_LENGHT):
             self.images_arr.append([])
 
-    def __plot_images(self, images, grey):
-        fig = plt.figure(figsize=(15, 18))
-        for i in range(min(16, len(images))):
-            fig.add_subplot(4, 4, i + 1)
-            if grey:
-                plt.imshow(images[i], cmap='gray')
-            else:
-                plt.imshow(images[i])
-        plt.show()
+    # def __plot_images(self, images, grey):
+    #     fig = plt.figure(figsize=(15, 18))
+    #     for i in range(min(16, len(images))):
+    #         fig.add_subplot(4, 4, i + 1)
+    #         if grey:
+    #             plt.imshow(images[i], cmap='gray')
+    #         else:
+    #             plt.imshow(images[i])
+    #     plt.show()
 
     def __detect_lp(self, img, file):
         img_crop = cv2.resize(img, (224, 224))
@@ -122,7 +123,7 @@ class RecognizeLp(object):
                         levelthreh=50):
         image = cv2.equalizeHist(image)
         (rows, cols) = image.shape
-        img_expand = np.full((rows + expandpixel*2, cols), 255)
+        img_expand = np.full((rows + expandpixel * 2, cols), 255)
         img_expand[expandpixel:rows + expandpixel, :] = image[:, :]
         (rows, cols) = img_expand.shape
         imglogr = np.log1p(np.array(img_expand, dtype='float') / 255)
@@ -156,46 +157,51 @@ class RecognizeLp(object):
         return img
 
     def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10, lfirstindex=30):
-        img = cv2.resize(image, (128, 64))
-        mean_imgs = np.mean(img, axis=0)
-        fig = plt.figure(figsize=(15, 18))
-        imgplot = plt.imshow(img, cmap='gray')
-        plt.plot(mean_imgs)
-        mask_index_split = []
-        fi = int(char_size / 2)
-        index = np.where(mean_imgs >= lfirstindex)
-        i = int(np.min(index) - char_size/2)
-        if i < 0:
-            i = 2
-        mask_index_split.append(i)
-        while (i + char_size) < len(mean_imgs):
-            index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
-            if len(index[0]) == 0:
-                i += char_size
-                continue
-            n = int(np.mean(index)) + i
-            print(n)
-            if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
-                i += char_size
-            else:
-                mask_index_split.append(n)
-                i = n + int(char_size / 2)
-        images = []
-        for i in range(1, len(mask_index_split)):
-            if (mask_index_split[i] - mask_index_split[i-1]) > char_size*2.2:
-                mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i-1])/2))
-        y = np.full((len(mask_index_split),), 20.0)
-        plt.scatter(mask_index_split, y, c='red', s=40)
-        plt.show()
-        for i in range(1, len(mask_index_split)):
-            for y in range(0, len(self.char_position)):
-                if mask_index_split[i-1] < self.char_position[y] < mask_index_split[i]:
-                    idx = y
-                    break
-            out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
-            plt.imshow(out, cmap='gray')
-            plt.show()
-        return images
+        try:
+            img = cv2.resize(image, (128, 64))
+            mean_imgs = np.mean(img, axis=0)
+            #fig = plt.figure(figsize=(15, 18))
+            #imgplot = plt.imshow(img, cmap='gray')
+            #plt.plot(mean_imgs)
+            mask_index_split = []
+            index = np.where(mean_imgs >= lfirstindex)
+            i = int(np.min(index) - char_size / 2)
+            if i < 0:
+                i = 2
+            mask_index_split.append(i)
+            while (i + char_size) < len(mean_imgs):
+                index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
+                if len(index[0]) == 0:
+                    i += char_size
+                    continue
+                n = int(np.mean(index)) + i
+                if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
+                    i += char_size
+                else:
+                    mask_index_split.append(n)
+                    i = n + int(char_size / 2)
+            for i in range(1, len(mask_index_split)):
+                if (mask_index_split[i] - mask_index_split[i - 1]) > char_size * 2.2:
+                    mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+            #y = np.full((len(mask_index_split),), 20.0)
+            #plt.scatter(mask_index_split, y, c='red', s=40)
+            #plt.show()
+            idx = -1
+            for i in range(1, len(mask_index_split)):
+                for y in range(0, len(self.char_position)):
+                    if mask_index_split[i - 1] < self.char_position[y] < mask_index_split[i]:
+                        idx = y
+                        break
+                out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
+                out = self.__image_normalisation(out)
+                if idx >= 0:
+                    self.images_arr[idx].append(out)
+                    idx = -1
+                #plt.imshow(out, cmap='gray')
+                #plt.show()
+            return True
+        except:
+            return False
 
     def __image_crop(self, image):
         ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -299,7 +305,9 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
-            image = cv2.resize(image, (24, 38))
+            y = int(image.shape[0] * 1.1)
+            x = int(y * 0.63)
+            image = cv2.resize(image, (x, y))
             imr = np.zeros((64, 64))
             yo = int(0.5 * 64 - image.shape[0] * 0.5)
             xo = int(0.5 * 64 - image.shape[1] * 0.5)
@@ -309,18 +317,17 @@ class RecognizeLp(object):
             return None
 
     def __image_conversion(self, imglp, lp_number):
-        print(lp_number)
-        plt.imshow(imglp, cmap='gray')
-        plt.show()
-        imglp = self.__image_denoise(imglp)
-        plt.imshow(imglp, cmap='gray')
-        plt.show()
-        images = self.__get_split_mask(imglp, lp_number)
-        for i in range(0, len(images)):
-            out = self.__img_crop_next_2(images[i], axis=1)
-            out = self.__img_crop_next_2(out, axis=0)
-            images[i] = self.__image_normalisation(out)
-        return images
+        try:
+            print(lp_number)
+            #plt.imshow(imglp, cmap='gray')
+            #plt.show()
+            imglp = self.__image_denoise(imglp)
+           # plt.imshow(imglp, cmap='gray')
+            #plt.show()
+            result = self.__get_split_mask(imglp, lp_number)
+            return result
+        except:
+            return False
 
     def __image_rotate(self, img, angle):
         image_center = tuple(np.array(img.shape[1::-1]) / 2)
@@ -342,21 +349,15 @@ class RecognizeLp(object):
         img = self.__detect_lp(image, file)
         if img is not None:
             for im in img:
-                images = self.__image_conversion(im, file)
-                lps = self.__image_ocr(images)
-                if lps is None:
-                    continue
-                number = ''
-                for ch in lps:
-                    number += self.letters[ch]
-                for i in range(0, len(number)):
-                    folder = os.path.join(IMG_PATH_ROOT, number[i])
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
-                    cv2.imwrite(folder + '/' + str(uuid.uuid4()) + '.jpg', images[i])
-                print(number)
-        else:
-            print('bad!!!')
+                self.__image_conversion(im, file)
+        letters_class = []
+        for imgs in self.images_arr:
+            letters_class.append(self.__image_ocr(imgs))
+        number = ''
+        for letters in letters_class:
+            ch = np.bincount(letters).argmax()
+            number += self.letters[ch]
+        print(number)
 
     def __decode_batch(self, out):
         ret = []
