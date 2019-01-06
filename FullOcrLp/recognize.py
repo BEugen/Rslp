@@ -32,8 +32,8 @@ class RecognizeLp(object):
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
-        self.char_position = [7, 20, 35, 48, 58, 71, 84, 97, 109]
-                             # 0  1  2   3   4   5    6  7   8
+        self.char_position = [11, 24, 37, 50, 64.25, 79, 93, 105.5, 111]
+                             # 0   1   2   3    4     5   6    7     8
     def __images_arr_init(self):
         self.images_arr = []
         for i in range(0, LP_MAX_LENGHT):
@@ -173,7 +173,7 @@ class RecognizeLp(object):
             if len(index[0]) == 0:
                 i += char_size
                 continue
-            n = np.min(index) + i
+            n = int(np.mean(index)) + i
             print(n)
             if len(mask_index_split) and (n - mask_index_split[len(mask_index_split) - 1]) <= char_size_min:
                 i += char_size
@@ -181,19 +181,42 @@ class RecognizeLp(object):
                 mask_index_split.append(n)
                 i = n + int(char_size / 2)
         images = []
+        for i in range(1, len(mask_index_split)):
+            if (mask_index_split[i] - mask_index_split[i-1]) > char_size*2.2:
+                mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i-1])/2))
         y = np.full((len(mask_index_split),), 20.0)
         plt.scatter(mask_index_split, y, c='red', s=40)
         plt.show()
-        print(self.char_position)
-        print(mask_index_split)
         for i in range(1, len(mask_index_split)):
             for y in range(0, len(self.char_position)):
                 if mask_index_split[i-1] < self.char_position[y] < mask_index_split[i]:
                     idx = y
-                    print(idx, mask_index_split[i-1], '<', self.char_position[y], '<', mask_index_split[i])
                     break
-            images.append(img[:, mask_index_split[i - 1]: mask_index_split[i]])
+            out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
+            plt.imshow(out, cmap='gray')
+            plt.show()
         return images
+
+    def __image_crop(self, image):
+        ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+        cnt = contours[0]
+        max_area = cv2.contourArea(cnt)
+        for cont in contours:
+            if cv2.contourArea(cont) > max_area:
+                cnt = cont
+                max_area = cv2.contourArea(cont)
+        epsilon = 0.005 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        approx = np.reshape(approx, (approx.shape[0], 2))
+        min_x, min_y = np.min(approx, axis=0)
+        max_x, max_y = np.max(approx, axis=0)
+        out = np.zeros_like(image)
+        cv2.fillPoly(out, pts=[cnt], color=255)
+        out[out == 255] = image[out == 255]
+        img = np.zeros((max_y - min_y, max_x - min_x))
+        img[:img.shape[0], :img.shape[1]] = out[min_y:max_y, min_x:max_x]
+        return img
 
     def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
         mean_imgs = np.mean(img, axis=axis)
