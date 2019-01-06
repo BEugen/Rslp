@@ -32,8 +32,8 @@ class RecognizeLp(object):
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
-        self.char_position = [10, 24, 37, 48.5, 62.5, 75.5, 87, 98.5, 111]
-                             # 0   1   2   3      4     5    6    7    8
+        self.char_position = [7, 20, 35, 48, 58, 71, 84, 97, 109]
+                             # 0  1  2   3   4   5    6  7   8
     def __images_arr_init(self):
         self.images_arr = []
         for i in range(0, LP_MAX_LENGHT):
@@ -184,15 +184,13 @@ class RecognizeLp(object):
         y = np.full((len(mask_index_split),), 20.0)
         plt.scatter(mask_index_split, y, c='red', s=40)
         plt.show()
+        print(self.char_position)
         print(mask_index_split)
-        dch = np.mean([mask_index_split[i] - mask_index_split[i-1] for i in range(1, len(mask_index_split))])*0.25
         for i in range(1, len(mask_index_split)):
-            ch = (mask_index_split[i] + mask_index_split[i-1])/2
             for y in range(0, len(self.char_position)):
-                if self.char_position[y] - dch < ch <= self.char_position[y] + dch:
+                if mask_index_split[i-1] < self.char_position[y] < mask_index_split[i]:
                     idx = y
-                    print(idx, self.char_position[y] - dch, '<', self.char_position[y], ':', ch,
-                          '(', mask_index_split[i], '-', mask_index_split[i-1], ')', '<=', self.char_position[y] + dch)
+                    print(idx, mask_index_split[i-1], '<', self.char_position[y], '<', mask_index_split[i])
                     break
             images.append(img[:, mask_index_split[i - 1]: mask_index_split[i]])
         return images
