@@ -6,7 +6,7 @@ from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 import random
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
 
@@ -15,7 +15,7 @@ K.set_session(sess)
 
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
-IMG_PATH_ROOT = 'E:/temp/chars'
+IMG_PATH_ROOT = '/mnt/misk/misk/lplate/nchars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
 
@@ -156,18 +156,18 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __get_split_mask(self, image, lp_number, char_size_min=10, char_size=10, lfirstindex=30):
+    def __get_split_mask(self, image, lp_number, char_size_min=26, char_size=26, lfirstindex=30):
         try:
-            img = cv2.resize(image, (128, 64))
+            img = cv2.resize(image, (286, 64))
             mean_imgs = np.mean(img, axis=0)
-            #fig = plt.figure(figsize=(15, 18))
-            #imgplot = plt.imshow(img, cmap='gray')
-            #plt.plot(mean_imgs)
+            fig = plt.figure(figsize=(15, 18))
+            imgplot = plt.imshow(img, cmap='gray')
+            plt.plot(mean_imgs)
             mask_index_split = []
             index = np.where(mean_imgs >= lfirstindex)
             i = int(np.min(index) - char_size / 2)
             if i < 0:
-                i = 2
+                i = 4
             mask_index_split.append(i)
             while (i + char_size) < len(mean_imgs):
                 index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
@@ -183,9 +183,9 @@ class RecognizeLp(object):
             for i in range(1, len(mask_index_split)):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
-            #y = np.full((len(mask_index_split),), 20.0)
-            #plt.scatter(mask_index_split, y, c='red', s=40)
-            #plt.show()
+            y = np.full((len(mask_index_split),), 20.0)
+            plt.scatter(mask_index_split, y, c='red', s=40)
+            plt.show()
             idx = -1
             for i in range(1, len(mask_index_split)):
                 for y in range(0, len(self.char_position)):
@@ -305,12 +305,13 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
-            y = int(image.shape[0] * 1.1)
-            x = int(y * 0.63)
+            y = 48
+            x = 28
+            (ys, xs) = (64, 64)
             image = cv2.resize(image, (x, y))
-            imr = np.zeros((64, 64))
-            yo = int(0.5 * 64 - image.shape[0] * 0.5)
-            xo = int(0.5 * 64 - image.shape[1] * 0.5)
+            imr = np.zeros((ys, xs))
+            yo = int(0.5 * ys - image.shape[0] * 0.5)
+            xo = int(0.5 * xs - image.shape[1] * 0.5)
             imr[yo:image.shape[0] + yo, xo:image.shape[1] + xo] = image[0:image.shape[0], 0:image.shape[1]]
             return imr
         except:
@@ -352,24 +353,18 @@ class RecognizeLp(object):
                 self.__image_conversion(im, file)
         letters_class = []
         for imgs in self.images_arr:
-            letters_class.append(self.__image_ocr(imgs))
+            #letters_class.append(self.__image_ocr(imgs))
+            for img in imgs:
+                cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
         number = ''
         for letters in letters_class:
+            if letters is None:
+                number += ' '
+                continue
             ch = np.bincount(letters).argmax()
             number += self.letters[ch]
         print(number)
 
-    def __decode_batch(self, out):
-        ret = []
-        for j in range(out.shape[0]):
-            out_best = list(np.argmax(out[j, 2:], 1))
-            out_best = [k for k, g in itertools.groupby(out_best)]
-            outstr = ''
-            for c in out_best:
-                if c < len(self.letters):
-                    outstr += self.letters[c]
-            ret.append(outstr)
-        return ret
 
     def __get_model_detect_lp(self):
         json_file = open(self.folder_nn + self.nn_detect_lp + '.json', 'r')
@@ -389,9 +384,3 @@ class RecognizeLp(object):
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')
         return loaded_model
 
-    def _random_file_name(self):
-        file_name = ''
-        for i in range(0, 12):
-            random.seed()
-            file_name += LP_LETTERS[random.randint(0, len(LP_LETTERS) - 1)]
-        return file_name
