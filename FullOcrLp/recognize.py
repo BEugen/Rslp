@@ -20,6 +20,10 @@ LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
 
 
+IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
+IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
+
+
 class RecognizeLp(object):
     def __init__(self):
         self.cntf = 0
@@ -160,9 +164,9 @@ class RecognizeLp(object):
         try:
             img = cv2.resize(image, (286, 64))
             mean_imgs = np.mean(img, axis=0)
-            fig = plt.figure(figsize=(15, 18))
-            imgplot = plt.imshow(img, cmap='gray')
-            plt.plot(mean_imgs)
+            #fig = plt.figure(figsize=(15, 18))
+            #imgplot = plt.imshow(img, cmap='gray')
+            #plt.plot(mean_imgs)
             mask_index_split = []
             index = np.where(mean_imgs >= lfirstindex)
             i = int(np.min(index) - char_size / 2)
@@ -184,8 +188,8 @@ class RecognizeLp(object):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
             y = np.full((len(mask_index_split),), 20.0)
-            plt.scatter(mask_index_split, y, c='red', s=40)
-            plt.show()
+            #plt.scatter(mask_index_split, y, c='red', s=40)
+            #plt.show()
             idx = -1
             for i in range(1, len(mask_index_split)):
                 for y in range(0, len(self.char_position)):
@@ -322,7 +326,14 @@ class RecognizeLp(object):
             print(lp_number)
             #plt.imshow(imglp, cmap='gray')
             #plt.show()
+            igm = imglp.copy()
+            igm = cv2.resize(igm, (286, 64))
+            file_name = str(uuid.uuid4()) + '.jpg'
+            cv2.imwrite(os.path.join(IMG_CROP, file_name), igm)
+            igm = self.__image_denoise(igm, areapixel=20, radius=5)
+            cv2.imwrite(os.path.join(IMG_MASK, file_name), igm)
             imglp = self.__image_denoise(imglp)
+
            # plt.imshow(imglp, cmap='gray')
             #plt.show()
             result = self.__get_split_mask(imglp, lp_number)
@@ -352,10 +363,10 @@ class RecognizeLp(object):
             for im in img:
                 self.__image_conversion(im, file)
         letters_class = []
-        for imgs in self.images_arr:
+        #for imgs in self.images_arr:
             #letters_class.append(self.__image_ocr(imgs))
-            for img in imgs:
-                cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
+            #for img in imgs:
+            #    cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
         number = ''
         for letters in letters_class:
             if letters is None:
