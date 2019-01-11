@@ -9,6 +9,7 @@ import random
 import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
+import logging
 
 sess = tf.Session()
 K.set_session(sess)
@@ -19,7 +20,6 @@ IMG_PATH_ROOT = '/mnt/misk/misk/lplate/nchars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
 PREDICT_FILTER_LEVEL = 0.7
-
 
 IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
 IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
@@ -40,8 +40,8 @@ class RecognizeLp(object):
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
-        self.char_position = [11, 24, 37, 50, 64.25, 79, 93, 105.5, 111]
-                            # 0   1   2   3    4     5   6    7     8
+        self.char_position = [25, 54, 81, 108, 135, 162, 180, 202, 227]
+        # 0   1   2   3    4     5   6    7     8
 
     def __images_arr_init(self):
         self.images_arr = []
@@ -92,7 +92,7 @@ class RecognizeLp(object):
             md_arr.append(md)
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
-            out = cv2.resize(out, (286, 64))
+            out = cv2.resize(out, (256, 64))
             # out = np.expand_dims(out.T, -1)/255
             img_gepotise.append(out)
         mdmax = np.max(md_arr)
@@ -164,13 +164,13 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __get_split_mask(self, image, lp_number, char_size_min=26, char_size=26, lfirstindex=30):
+    def __get_split_mask(self, image, lp_number, char_size_min=20, char_size=20, lfirstindex=30, areapixel=5):
         try:
-            img = cv2.resize(image, (286, 64))
+            img = self.__bw_area_open(np.uint8(image.copy()), areapixel)
             mean_imgs = np.mean(img, axis=0)
-            #fig = plt.figure(figsize=(15, 18))
-            #imgplot = plt.imshow(img, cmap='gray')
-            #plt.plot(mean_imgs)
+            fig = plt.figure(figsize=(15, 18))
+            imgplot = plt.imshow(img, cmap='gray')
+            plt.plot(mean_imgs)
             mask_index_split = []
             index = np.where(mean_imgs >= lfirstindex)
             i = int(np.min(index) - char_size / 2)
@@ -192,9 +192,10 @@ class RecognizeLp(object):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
             y = np.full((len(mask_index_split),), 20.0)
-            #plt.scatter(mask_index_split, y, c='red', s=40)
-            #plt.show()
+            plt.scatter(mask_index_split, y, c='red', s=40)
+            plt.show()
             idx = -1
+            print(mask_index_split)
             for i in range(1, len(mask_index_split)):
                 for y in range(0, len(self.char_position)):
                     if mask_index_split[i - 1] < self.char_position[y] < mask_index_split[i]:
@@ -205,10 +206,11 @@ class RecognizeLp(object):
                 if idx >= 0:
                     self.images_arr[idx].append(out)
                     idx = -1
-                #plt.imshow(out, cmap='gray')
-                #plt.show()
+                plt.imshow(out, cmap='gray')
+                plt.show()
             return True
         except:
+            logging.exception('')
             return False
 
     def __image_crop(self, image):
@@ -313,8 +315,9 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
-            y = 48
-            x = 28
+            y = 45
+            kf = y / image.shape[0]
+            x = int(image.shape[1] * kf)
             (ys, xs) = (64, 64)
             image = cv2.resize(image, (x, y))
             imr = np.zeros((ys, xs))
@@ -323,26 +326,27 @@ class RecognizeLp(object):
             imr[yo:image.shape[0] + yo, xo:image.shape[1] + xo] = image[0:image.shape[0], 0:image.shape[1]]
             return imr
         except:
+            logging.exception('')
             return None
 
     def __image_conversion(self, imglp, lp_number):
         try:
             print(lp_number)
-            #plt.imshow(imglp, cmap='gray')
-            #plt.show()
-            igm = imglp.copy()
-            igm = cv2.resize(igm, (286, 64))
-            file_name = str(uuid.uuid4()) + '.jpg'
-            cv2.imwrite(os.path.join(IMG_CROP, file_name), igm)
-            igm = self.__image_denoise(igm, areapixel=20, radius=5)
-            cv2.imwrite(os.path.join(IMG_MASK, file_name), igm)
-            imglp = self.__image_denoise(imglp)
+            imglp = np.squeeze(imglp, -1)
+            # igm = imglp.copy()
+            # igm = cv2.resize(igm, (286, 64))
+            # file_name = str(uuid.uuid4()) + '.jpg'
+            # cv2.imwrite(os.path.join(IMG_CROP, file_name), igm)
+            # igm = self.__image_denoise(igm, areapixel=20, radius=5)
+            # cv2.imwrite(os.path.join(IMG_MASK, file_name), igm)
+            # imglp = self.__image_denoise(imglp)
 
-           # plt.imshow(imglp, cmap='gray')
-            #plt.show()
+            # plt.imshow(imglp, cmap='gray')
+            # plt.show()
             result = self.__get_split_mask(imglp, lp_number)
             return result
         except:
+            logging.exception('')
             return False
 
     def __image_rotate(self, img, angle):
@@ -358,6 +362,7 @@ class RecognizeLp(object):
             predict = self.ocrlp.predict_classes(images)
             return predict
         except:
+            logging.exception('')
             return None
 
     def __image_filter(self, images):
@@ -369,22 +374,24 @@ class RecognizeLp(object):
             for img in predict:
                 img_out = np.zeros(img.shape)
                 img_out[img >= self.fdl] = 255
-                out.append(out)
+                out.append(img_out)
+            return out
         except:
+            logging.exception('')
             return None
-
 
     def recognize(self, image, file):
         self.__images_arr_init()
         img = self.__detect_lp(image, file)
         if img is not None:
+            img = self.__image_filter(img)
             for im in img:
                 self.__image_conversion(im, file)
         letters_class = []
-        #for imgs in self.images_arr:
-            #letters_class.append(self.__image_ocr(imgs))
-            #for img in imgs:
-            #    cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
+        # for imgs in self.images_arr:
+        # letters_class.append(self.__image_ocr(imgs))
+        # for img in imgs:
+        #    cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
         number = ''
         for letters in letters_class:
             if letters is None:
@@ -394,7 +401,7 @@ class RecognizeLp(object):
             number += self.letters[ch]
         print(number)
 
-
+    # load model for get license plate from image
     def __get_model_detect_lp(self):
         json_file = open(self.folder_nn + self.nn_detect_lp + '.json', 'r')
         loaded_model_json = json_file.read()
@@ -404,6 +411,7 @@ class RecognizeLp(object):
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
         return loaded_model
 
+    # load model for filtration image license plate
     def __get_model_filter_lp(self):
         json_file = open(self.folder_nn + self.nn_filter_lp + '.json', 'r')
         loaded_model_json = json_file.read()
@@ -413,6 +421,7 @@ class RecognizeLp(object):
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
         return loaded_model
 
+    # load model for ocr license plate chars
     def __get_model_ocr_lp(self):
         json_file = open(self.folder_nn + self.nn_ocr_lp + '.json', 'r')
         loaded_model_json = json_file.read()
@@ -421,4 +430,3 @@ class RecognizeLp(object):
         loaded_model.load_weights(self.folder_nn + self.nn_ocr_lp + '.h5')
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')
         return loaded_model
-
