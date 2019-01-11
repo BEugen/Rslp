@@ -18,6 +18,7 @@ LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
 IMG_PATH_ROOT = '/mnt/misk/misk/lplate/nchars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
+PREDICT_FILTER_LEVEL = 0.7
 
 
 IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
@@ -30,9 +31,12 @@ class RecognizeLp(object):
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
         self.nn_ocr_lp = 'model-ocr-lp'
+        self.nn_filter_lp = 'model-filter-lp'
         self.dlp = self.__get_model_detect_lp()
+        self.flp = self.__get_model_filter_lp()
         self.ocrlp = self.__get_model_ocr_lp()
         self.pdl = PREDICT_DETECT_LEVEL
+        self.fdl = PREDICT_FILTER_LEVEL
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
@@ -88,7 +92,7 @@ class RecognizeLp(object):
             md_arr.append(md)
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
-            # out = cv2.resize(out, (128, 64))
+            out = cv2.resize(out, (286, 64))
             # out = np.expand_dims(out.T, -1)/255
             img_gepotise.append(out)
         mdmax = np.max(md_arr)
@@ -356,6 +360,20 @@ class RecognizeLp(object):
         except:
             return None
 
+    def __image_filter(self, images):
+        try:
+            images = np.array(images) / 255
+            images = np.reshape(images, images.shape + (1,))
+            predict = self.flp.predict(images)
+            out = []
+            for img in predict:
+                img_out = np.zeros(img.shape)
+                img_out[img >= self.fdl] = 255
+                out.append(out)
+        except:
+            return None
+
+
     def recognize(self, image, file):
         self.__images_arr_init()
         img = self.__detect_lp(image, file)
@@ -383,6 +401,15 @@ class RecognizeLp(object):
         json_file.close()
         loaded_model = model_from_json(loaded_model_json)
         loaded_model.load_weights(self.folder_nn + self.nn_detect_lp + '.h5')
+        loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+        return loaded_model
+
+    def __get_model_filter_lp(self):
+        json_file = open(self.folder_nn + self.nn_filter_lp + '.json', 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+        loaded_model = model_from_json(loaded_model_json)
+        loaded_model.load_weights(self.folder_nn + self.nn_filter_lp + '.h5')
         loaded_model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
         return loaded_model
 
