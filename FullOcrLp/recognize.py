@@ -6,7 +6,7 @@ from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 import random
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
 import logging
@@ -168,9 +168,9 @@ class RecognizeLp(object):
         try:
             img = self.__bw_area_open(np.uint8(image.copy()), areapixel)
             mean_imgs = np.mean(img, axis=0)
-            fig = plt.figure(figsize=(15, 18))
-            imgplot = plt.imshow(img, cmap='gray')
-            plt.plot(mean_imgs)
+            #fig = plt.figure(figsize=(15, 18))
+            #imgplot = plt.imshow(img, cmap='gray')
+            #plt.plot(mean_imgs)
             mask_index_split = []
             index = np.where(mean_imgs >= lfirstindex)
             i = int(np.min(index) - char_size / 2)
@@ -192,8 +192,8 @@ class RecognizeLp(object):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
             y = np.full((len(mask_index_split),), 20.0)
-            plt.scatter(mask_index_split, y, c='red', s=40)
-            plt.show()
+            #plt.scatter(mask_index_split, y, c='red', s=40)
+            #plt.show()
             idx = -1
             print(mask_index_split)
             for i in range(1, len(mask_index_split)):
@@ -206,8 +206,8 @@ class RecognizeLp(object):
                 if idx >= 0:
                     self.images_arr[idx].append(out)
                     idx = -1
-                plt.imshow(out, cmap='gray')
-                plt.show()
+                #plt.imshow(out, cmap='gray')
+                #plt.show()
             return True
         except:
             logging.exception('')
@@ -385,13 +385,14 @@ class RecognizeLp(object):
         img = self.__detect_lp(image, file)
         if img is not None:
             img = self.__image_filter(img)
-            for im in img:
-                self.__image_conversion(im, file)
+            if img is not None:
+                for im in img:
+                    self.__image_conversion(im, file)
         letters_class = []
-        # for imgs in self.images_arr:
+        for imgs in self.images_arr:
         # letters_class.append(self.__image_ocr(imgs))
-        # for img in imgs:
-        #    cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
+            for img in imgs:
+                cv2.imwrite(os.path.join(IMG_PATH_ROOT, str(uuid.uuid4()) + '.jpg'), img)
         number = ''
         for letters in letters_class:
             if letters is None:
