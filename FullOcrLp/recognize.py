@@ -40,7 +40,7 @@ class RecognizeLp(object):
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
-        self.char_position = [25, 54, 81, 108, 135, 162, 180, 202, 227]
+        self.char_position = [25, 54, 81, 108, 135, 162, 177, 202, 227]
         # 0   1   2   3    4     5   6    7     8
 
     def __images_arr_init(self):
@@ -215,7 +215,9 @@ class RecognizeLp(object):
 
     def __image_crop(self, image):
         ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
+        img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+        (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnt = contours[0]
         max_area = cv2.contourArea(cnt)
         for cont in contours:
@@ -232,6 +234,7 @@ class RecognizeLp(object):
         #out[out == 255] = image[out == 255]
         img = np.zeros((max_y - min_y, max_x - min_x))
         img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
+        img = self.__bw_area_open(np.uint8(img), 5)
         return img
 
     def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
