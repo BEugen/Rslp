@@ -26,7 +26,9 @@ def main():
         if im_prev is None:
             im_prev = im_p
             continue
-        ld = round(np.sqrt(np.linalg.norm(im_p - im_prev))/100, 2)
+        ld = np.sum((im_p.astype("float") - im_prev.astype("float"))**2)
+        ld /= float(im_p.shape[0]*im_p.shape[1])
+        ld = round(ld/100, 2)
         cv2.rectangle(im_p, (0, 0), (1000, 50), (255, 255, 255), cv2.FILLED)
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(im_p, str(ld), (10, 50), font, 2, (0,0,0), 2, cv2.LINE_AA)
