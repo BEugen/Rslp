@@ -47,11 +47,13 @@ class RecognizeLp(object):
         self.number_format = 'cdddccddd'
         self.number_ocr = ''
         self.date_ocr = ''
+        self.ok_ocr = False
 
     def __images_arr_init(self):
         self.images_arr = []
         for i in range(0, LP_MAX_LENGHT):
             self.images_arr.append([])
+        self.ok_ocr = False
 
     # def __plot_images(self, images, grey):
     #     fig = plt.figure(figsize=(15, 18))
@@ -446,6 +448,7 @@ class RecognizeLp(object):
         if re.findall(regex, number):
             self.number_ocr = number
             self.date_ocr = datetime.now()
+            self.ok_ocr = True
 
 
     # load model for get license plate from image

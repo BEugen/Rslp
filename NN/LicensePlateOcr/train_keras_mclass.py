@@ -15,8 +15,8 @@ from keras import callbacks
 import argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-IMG_PATH_TRAIN = '/mnt/misk/misk/lplate/chars/train/'
-IMG_PATH_TEST= '/mnt/misk/misk/lplate/chars/test/'
+IMG_PATH_TRAIN = '/mnt/misk/misk/lplate/augchar/train/'
+IMG_PATH_TEST= '/mnt/misk/misk/lplate/augchar/test/'
 #IMG_PATH = 'Imgtrain/'
 BATCH_SIZE = 64
 NB_EPOCH = 100
