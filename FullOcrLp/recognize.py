@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import cv2
+import re
 import itertools
 from keras.models import *
 from keras.layers import *
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
 import logging
+from datetime import datetime
 
 sess = tf.Session()
 K.set_session(sess)
@@ -42,6 +44,9 @@ class RecognizeLp(object):
         self.images_arr = []
         self.char_position = [25, 54, 81, 108, 135, 162, 177, 202, 227]
         # 0   1   2   3    4     5   6    7     8
+        self.number_format = 'cdddccddd'
+        self.number_ocr = ''
+        self.date_ocr = ''
 
     def __images_arr_init(self):
         self.images_arr = []
@@ -164,7 +169,54 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __get_split_mask(self, image, folder, char_size_min=20, char_size=20, lfirstindex=30, areapixel=5):
+    def __split_number(self, image, folder, char_size_min=22, areapixel=5, split_level=3):
+        try:
+            img = self.__bw_area_open(np.uint8(image.copy()), areapixel)
+            mean_imgs = np.mean(img, axis=0)
+            plt.figure(figsize=(15, 18))
+            plt.imshow(img, cmap='gray')
+            plt.plot(mean_imgs)
+            mask_index_split = []
+            index = np.where(mean_imgs > split_level)
+            min_lp = np.min(index)
+            if min_lp > 2 * char_size_min:
+                return False
+            index = np.where(mean_imgs < split_level)
+            index = index[0] if len(index) > 0 else []
+            prev_index = index[0]
+            mask_c = []
+            for i in range(1, len(index)):
+                if (index[i] - index[i - 1]) > char_size_min*0.7 or index[i] == (img.shape[1] - 1):
+                    mask_index_split.append(int((index[i - 1] - prev_index) / 2) + prev_index)
+                    prev_index = index[i]
+                    lm = len(mask_index_split)
+                    if lm > 1:
+                        mask_c.append(int((mask_index_split[lm - 1] - mask_index_split[lm - 2]) / 2 +
+                                          mask_index_split[lm - 2] - min_lp))
+            for i in range(1, len(mask_index_split)):
+                if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
+                    mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+            idx = 0
+            for i in range(1, len(mask_index_split)):
+                out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
+                out = self.__image_normalisation(out)
+                self.images_arr[idx].append(out)
+                idx += 1
+            y = np.full((len(mask_index_split),), 20.0)
+            plt.scatter(mask_index_split, y, c='blue', s=40)
+            plt.savefig(os.path.join(folder, str(uuid.uuid4()) + '.png'))
+            f = open(os.path.join(IMG_PATH_ROOT, 'split_img.txt'), 'a')
+            f.writelines(', '.join(str(ind) for ind in mask_c))
+            f.write('\n')
+            f.close()
+            plt.close()
+            return True
+        except:
+            logging.exception('')
+            return False
+
+    def __get_split_mask(self, image, folder, char_size_min=20, char_size=20,
+                         lfirstindex=30, areapixel=5, split_level=10):
         try:
             img = self.__bw_area_open(np.uint8(image.copy()), areapixel)
             mean_imgs = np.mean(img, axis=0)
@@ -178,7 +230,7 @@ class RecognizeLp(object):
                 i = 4
             mask_index_split.append(i)
             while (i + char_size) < len(mean_imgs):
-                index = np.where(mean_imgs[i:i + char_size] == np.min(mean_imgs[i:i + char_size]))
+                index = np.where(mean_imgs[i:i + char_size] <= split_level)
                 if len(index[0]) == 0:
                     i += char_size
                     continue
@@ -268,54 +320,6 @@ class RecognizeLp(object):
         imc[:, :] = img[l_bot:l_top, :] if axis > 0 else img[:, l_bot:l_top]
         return imc
 
-    def __img_crop_next_2(self, img, axis=0, level=5, findk=0.15):
-        mean_imgs = np.mean(img, axis=axis)
-        hw = (img.shape[0] if axis else img.shape[1])
-        fa = int(hw * 0.5 - hw * 0.5 * findk)
-        fb = int(hw * 0.5 + hw * 0.5 * findk)
-        fa = 0 if fa < 0 else fa
-        fb = len(mean_imgs) if fb > len(mean_imgs) else fb
-        mean_a = mean_imgs[:fa]
-        mean_b = mean_imgs[fb:]
-        mni = np.median(mean_imgs)
-        wsa, ima = self.__max_window(mean_a, mni, 0)
-        wsb, imb = self.__max_window(mean_b, mni, fb)
-        fa = ima
-        fb = imb
-        if wsa == 0:
-            fa = imb
-        if wsb == 0:
-            fb = ima
-        if wsa * 2.5 < wsb:
-            fa = imb
-        if wsb * 2.5 < wsa:
-            fb = fa
-        fa = 0 if fa < 0 else fa
-        fb = len(mean_imgs) if fb > len(mean_imgs) else fb
-        mean_a = mean_imgs[:fa]
-        mean_b = mean_imgs[fb:]
-        # print("Ma={0}, Mb={1}".format(len(mean_a), len(mean_b)))
-        index = np.where((mean_a <= np.min(mean_a)) & (mean_a <= level))
-        index = 0 if len(index[0]) == 0 else np.max(index)
-        l_bot = index if index > 0 else 0
-        index = np.where((mean_b <= np.min(mean_b)) & (mean_b <= level))
-        index = hw if len(index[0]) == 0 else np.min(index) + fb
-        l_top = index if index <= hw else hw
-        w = img.shape[1] if axis > 0 else l_top - l_bot
-        h = img.shape[0] if axis == 0 else l_top - l_bot
-        imc = np.zeros((h, w))
-        imc[:, :] = img[l_bot:l_top, :] if axis > 0 else img[:, l_bot:l_top]
-        return imc
-
-    def __max_window(self, data, level, offset=0):
-        index = np.where(data >= level)
-        if len(index) == 0 or len(index[0]) == 0:
-            return 0, 0
-        __index = index[0]
-        windows_size = __index[len(__index) - 1] - __index[0]
-        windows_max_value = int(np.mean(index)) + offset
-        return windows_size, windows_max_value
-
     def __image_normalisation(self, image):
         try:
             y = 45
@@ -335,7 +339,8 @@ class RecognizeLp(object):
     def __image_conversion(self, imglp, folder):
         try:
             imglp = np.squeeze(imglp, -1)
-            result = self.__get_split_mask(imglp, folder)
+            #result = self.__get_split_mask(imglp, folder)
+            result = self.__split_number(imglp, folder)
             return result
         except:
             logging.exception('')
@@ -405,10 +410,43 @@ class RecognizeLp(object):
                 continue
             ch = np.bincount(letters).argmax()
             number += self.letters[ch]
-        f = open(os.path.join(folder, number + '.txt'), "a")
-        f.write(number)
-        f.close()
+        number = number.replace(' ', '')
+        rnumber = ''
         print(number)
+        for i in range(len(number)):
+            rnumber += self.__number_normalistion(number[i], self.number_format[i] == 'd')
+        self.__match_to_number(rnumber)
+        f = open(os.path.join(folder, rnumber + '.txt'), "a")
+        f.write(rnumber)
+        f.close()
+        print(self.date_ocr, self.number_ocr)
+
+    def __number_normalistion(self, char, isdigist):
+        if isdigist:
+            return self.__char_to_dig(char)
+        else:
+            return self.__dig_to_char(char)
+
+    def __dig_to_char(self, char):
+        if char == '0':
+            return 'O'
+        if char == '8':
+            return 'B'
+        return char
+
+    def __char_to_dig(self, char):
+        if char == 'O':
+            return '0'
+        if char == 'B':
+            return '8'
+        return char
+
+    def __match_to_number(self, number):
+        regex = r"\D\d{3}\D{2}\d{2,3}"
+        if re.findall(regex, number):
+            self.number_ocr = number
+            self.date_ocr = datetime.now()
+
 
     # load model for get license plate from image
     def __get_model_detect_lp(self):
