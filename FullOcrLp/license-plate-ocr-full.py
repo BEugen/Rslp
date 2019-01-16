@@ -5,26 +5,39 @@ import videocapture
 import numpy as np
 import uuid
 from multiprocessing import Process, Queue
+import atexit
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
 IMG_FOR_OCR = '/mnt/misk/misk/lplate/test_img_all'
 DETECT_LEVEL = 50
 
-def ocr(qe, rc, image):
+def ocr(qo, qi):
+    rc = recognize.RecognizeLp()
     fn = os.path.join(IMG_FOR_OCR, str(uuid.uuid4()) + '.jpg')
-    rc.recognize(image, fn)
-    qe.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr])
+    while True:
+        if qi.qsize() > 0:
+            image = qi.get()
+            rc.recognize(image, fn)
+            qo.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr])
+            print('End ocr')
+
+def ocr_kill(ocr):
+    ocr.terminate()
 
 def main():
     img_old = None
-    rc = recognize.RecognizeLp()
+
     x1, x2, y1, y2 = (125, 950, 280, 700)#src='http:///mjpg/video.mjpg',
-    vc = videocapture.VideoCaptureTreading(width=1000, height=800)
-    vc.start()
-    q = Queue()
-    p = Process(target=ocr, args=(q, rc, img_old))
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1000)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)
+    qo = Queue()
+    qi = Queue()
+    p = Process(target=ocr, args=(qo, qi))
+    p.start()
+    atexit.register(ocr_kill, p)
     while True:
-        ret, image = vc.read()
+        ret, image = cap.read()
         img = image[y1:y2, x1:x2]
         if img_old is None:
             img_old = img
@@ -37,13 +50,12 @@ def main():
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(image, str(ld), (10, 50), font, 2, (0, 0, 0), 2, cv2.LINE_AA)
-        if not p.is_alive() and ld > DETECT_LEVEL:
+        if ld > DETECT_LEVEL:
             print('Recognise!!!')
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            p = Process(target=ocr, args=(q, rc, img))
-            p.start()
-        if not p.is_alive() and q.qsize() > 0:
-            ocr_data = q.get()
+            qi.put(img)
+        if qo.qsize() > 0:
+            ocr_data = qo.get()
             if ocr_data[0]:
                 cv2.putText(image, ocr_data[2], (50, 50), font, 2, (0, 0, 0), 2, cv2.LINE_AA)
                 cv2.putText(image, ocr_data[1].strftime('%d.%m.%Y %H:%M.%S'), (100, 50), font, 2, (0, 0, 0), 2, cv2.LINE_AA)
@@ -52,6 +64,8 @@ def main():
                 cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
         cv2.imshow('Video', image)
         if cv2.waitKey(1) == 27:
+            cap.release()
+            cv2.destroyAllWindows()
             exit(0)
 
     # for file in os.listdir(IMG_PATH):

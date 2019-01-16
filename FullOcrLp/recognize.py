@@ -13,8 +13,6 @@ import scipy.fftpack
 import logging
 from datetime import datetime
 
-sess = tf.Session()
-K.set_session(sess)
 
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
