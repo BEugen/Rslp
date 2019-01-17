@@ -16,7 +16,7 @@ from datetime import datetime
 
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
-IMG_PATH_ROOT = 'E:\\temp\\chars'
+#IMG_PATH_ROOT = 'E:\\temp\\chars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
 PREDICT_FILTER_LEVEL = 0.7
@@ -169,9 +169,9 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __split_number(self, image, folder, char_size_min=22, areapixel=5, split_level=3):
+    def __split_number(self, image, folder, char_size_min=20, areapixel=50, split_level=3):
         try:
-            img = self.__bw_area_open(np.uint8(image.copy()), areapixel)
+            img = self.__bw_area_open(np.uint8(image), areapixel)
             mean_imgs = np.mean(img, axis=0)
             plt.figure(figsize=(15, 18))
             plt.imshow(img, cmap='gray')
@@ -184,15 +184,21 @@ class RecognizeLp(object):
             index = np.where(mean_imgs < split_level)
             index = index[0] if len(index) > 0 else []
             prev_index = index[0]
-            mask_c = []
+            prev_char = -1 * char_size_min
+            ch_ind = 0
             for i in range(1, len(index)):
-                if (index[i] - index[i - 1]) > char_size_min*0.7 or index[i] == (img.shape[1] - 1):
-                    mask_index_split.append(int((index[i - 1] - prev_index) / 2) + prev_index)
+                if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
+                    delta = int((index[i - 1] - prev_index) / 2) + prev_index
+                    print(delta - prev_char)
+                    if (delta - prev_char) < char_size_min:
+                        continue
+                    prev_char = delta
+                    mask_index_split.append(delta)
+                    ch_ind += 1
+                    if ch_ind == 7:
+                        char_size_min -= 4
                     prev_index = index[i]
-                    lm = len(mask_index_split)
-                    if lm > 1:
-                        mask_c.append(int((mask_index_split[lm - 1] - mask_index_split[lm - 2]) / 2 +
-                                          mask_index_split[lm - 2] - min_lp))
+            char_size_min += 4
             for i in range(1, len(mask_index_split)):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
@@ -205,10 +211,6 @@ class RecognizeLp(object):
             y = np.full((len(mask_index_split),), 20.0)
             plt.scatter(mask_index_split, y, c='blue', s=40)
             plt.savefig(os.path.join(folder, str(uuid.uuid4()) + '.png'))
-            f = open(os.path.join(IMG_PATH_ROOT, 'split_img.txt'), 'a')
-            f.writelines(', '.join(str(ind) for ind in mask_c))
-            f.write('\n')
-            f.close()
             plt.close()
             return True
         except:

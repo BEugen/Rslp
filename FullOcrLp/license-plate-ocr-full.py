@@ -9,7 +9,7 @@ import time
 import motiondetect
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
-IMG_FOR_OCR = 'E:\\temp\\chars'
+IMG_FOR_OCR = '/mnt/misk/misk/lplate/temp'
 MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
@@ -37,7 +37,7 @@ def main():
     number = ''
     x1, x2, y1, y2 = (125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
     (x_o, y_o) = 0, 0
-    cap = cv2.VideoCapture('http://172.31.176.6/mjpg/video.mjpg')
+    cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 768)
     qo = Queue()
@@ -97,8 +97,8 @@ def main():
                 cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
             else:
                 cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
-        cv2.putText(image, number, (10, 50), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-        image[y1:y2, x1:x2] = imgc
+        cv2.putText(image, number, (10, 35), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
+        #image[y1:y2, x1:x2] = imgc
         cv2.imshow('Video', image)
         if cv2.waitKey(1) == 27:
             cap.release()

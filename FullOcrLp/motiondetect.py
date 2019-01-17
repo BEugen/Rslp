@@ -3,10 +3,9 @@ import cv2
 import math
 
 
-
 class MotionDetect:
     def __init__(self, region=(0, 50, 0, 50), limit_height=10, limit_width=10,
-               blur=21, motion_obj_size=50, motoin_l_limit=0, motion_h_limit=15):
+                 blur=21, motion_obj_size=50, motoin_l_limit=0, motion_h_limit=15):
         self.limit_heigh = limit_height
         self.limit_width = limit_width
         self.motion_l_limit = motoin_l_limit
@@ -14,10 +13,12 @@ class MotionDetect:
         self.blur = blur
         self.motion_obj_size = motion_obj_size
         x1, x2, y1, y2 = region
-        self.region_control = (x1 + limit_width, x2 - limit_width, y1+limit_height, y2 - limit_height)
+        self.region_control = (x1 + limit_width, x2 - limit_width, y1 + limit_height, y2 - limit_height)
         self.older_image = None
         self.x = 0
         self.y = 0
+        self.xo = 0
+        self.yo = 0
 
     def detect(self, image):
         result = False
@@ -45,13 +46,14 @@ class MotionDetect:
             if h < self.motion_obj_size and w < self.motion_obj_size:
                 return False
         xd, yd = (math.fabs(x - self.x), math.fabs(y - self.y))
-        if self.motion_l_limit <= xd < self.motion_h_limit  \
-            and self.motion_l_limit <= yd < self.motion_h_limit \
-                and (self.region_control[0] < self.x < self.region_control[1]
-                     or self.region_control[2] < self.y < self.region_control[3]):
+        if self.motion_l_limit <= xd < self.motion_h_limit \
+                and self.motion_l_limit <= yd < self.motion_h_limit \
+                and (self.x < 1.5 or self.y < 1.5) and (self.xo != 0 or self.yo != 0):
             print('Recognise!!!')
             result = True
-        print(xd, yd, self.x, self.y)
+        self.xo = self.x
+        self.yo = self.y
         self.x = x
         self.y = y
         return result
+
