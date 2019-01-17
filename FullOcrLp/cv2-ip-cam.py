@@ -18,7 +18,7 @@ import numpy as np
 
 def main():
     import cv2
-    cap = cv2.VideoCapture('http:///mjpg/video.mjpg')
+    cap = cv2.VideoCapture('http://172.31./mjpg/video.mjpg')
     im_prev = None
     while True:
         ret, frame = cap.read()
