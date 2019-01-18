@@ -169,10 +169,13 @@ class RecognizeLp(object):
         img = self.__bw_area_open(img, areapixel)
         return img
 
-    def __split_number(self, image, folder, char_size_min=20, areapixel=50, split_level=3):
+    def __split_number(self, image, folder, char_size_min=18, areapixel=30, split_level=3):
         try:
-            img = self.__bw_area_open(np.uint8(image), areapixel)
-            mean_imgs = np.mean(img, axis=0)
+            _, tresh = cv2.threshold(np.uint8(image.copy()), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+            img = self.__bw_area_open(tresh, areapixel)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 40))
+            im_morph = cv2.morphologyEx(img.copy(), cv2.MORPH_CLOSE, kernel)
+            mean_imgs = np.mean(im_morph, axis=0)
             plt.figure(figsize=(15, 18))
             plt.imshow(img, cmap='gray')
             plt.plot(mean_imgs)
@@ -249,7 +252,6 @@ class RecognizeLp(object):
             plt.scatter(mask_index_split, y, c='red', s=40)
             plt.savefig(os.path.join(folder, str(uuid.uuid4()) + '.png'))
             idx = -1
-            print(mask_index_split)
             for i in range(1, len(mask_index_split)):
                 for y in range(0, len(self.char_position)):
                     if mask_index_split[i - 1] < self.char_position[y] < mask_index_split[i]:
@@ -268,9 +270,9 @@ class RecognizeLp(object):
             return False
 
     def __image_crop(self, image):
-        ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        #ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
-        img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+        img = cv2.morphologyEx(image.copy(), cv2.MORPH_CLOSE, kernel)
         (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnt = contours[0]
         max_area = cv2.contourArea(cnt)
