@@ -13,10 +13,9 @@ import scipy.fftpack
 import logging
 from datetime import datetime
 
-
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
-#IMG_PATH_ROOT = 'E:\\temp\\chars'
+# IMG_PATH_ROOT = 'E:\\temp\\chars'
 LP_MAX_LENGHT = 9
 PREDICT_DETECT_LEVEL = 0.55
 PREDICT_FILTER_LEVEL = 0.7
@@ -24,7 +23,8 @@ PREDICT_FILTER_LEVEL = 0.7
 IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
 IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
 
-
+#ToDo need add check predict accuracy for recognize char
+#ToDo need check and modify image split chars: delta min chars need from end index min levels
 class RecognizeLp(object):
     def __init__(self):
         self.cntf = 0
@@ -192,7 +192,7 @@ class RecognizeLp(object):
                     print(delta - prev_char)
                     if (delta - prev_char) < char_size_min:
                         continue
-                    prev_char = delta
+                    prev_char = index[i - 1]
                     mask_index_split.append(delta)
                     ch_ind += 1
                     if ch_ind == 7:
@@ -283,9 +283,9 @@ class RecognizeLp(object):
         approx = np.reshape(approx, (approx.shape[0], 2))
         min_x, min_y = np.min(approx, axis=0)
         max_x, max_y = np.max(approx, axis=0)
-        #out = np.zeros_like(image)
-        #cv2.fillPoly(out, pts=[cnt], color=255)
-        #out[out == 255] = image[out == 255]
+        # out = np.zeros_like(image)
+        # cv2.fillPoly(out, pts=[cnt], color=255)
+        # out[out == 255] = image[out == 255]
         img = np.zeros((max_y - min_y, max_x - min_x))
         img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
         img = self.__bw_area_open(np.uint8(img), 5)
@@ -341,7 +341,7 @@ class RecognizeLp(object):
     def __image_conversion(self, imglp, folder):
         try:
             imglp = np.squeeze(imglp, -1)
-            #result = self.__get_split_mask(imglp, folder)
+            # result = self.__get_split_mask(imglp, folder)
             result = self.__split_number(imglp, folder)
             return result
         except:
@@ -380,48 +380,51 @@ class RecognizeLp(object):
             return None
 
     def recognize(self, image, folder):
-        self.__images_arr_init()
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        img = self.__detect_lp(image)
-        if img is not None:
-            for im in img:
-                cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
-            img = self.__image_filter(img)
+        try:
+            self.__images_arr_init()
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            img = self.__detect_lp(image)
             if img is not None:
                 for im in img:
                     cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
-                    self.__image_conversion(im, folder)
-        letters_class = []
-        for imgs in self.images_arr:
-            nclass = []
-            if len(imgs) > 0:
-                nclass = self.__image_ocr(imgs)
-                letters_class.append(nclass)
-            i = 0
-            for img in imgs:
-                if img is None:
+                img = self.__image_filter(img)
+                if img is not None:
+                    for im in img:
+                        cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
+                        self.__image_conversion(im, folder)
+            letters_class = []
+            for imgs in self.images_arr:
+                nclass = []
+                if len(imgs) > 0:
+                    nclass = self.__image_ocr(imgs)
+                    letters_class.append(nclass)
+                i = 0
+                for img in imgs:
+                    if img is None:
+                        continue
+                    cv2.imwrite(os.path.join(folder,
+                                             self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
+                    i += 1
+            number = ''
+            for letters in letters_class:
+                if letters is None:
+                    number += ' '
                     continue
-                cv2.imwrite(os.path.join(folder,
-                                         self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
-                i += 1
-        number = ''
-        for letters in letters_class:
-            if letters is None:
-                number += ' '
-                continue
-            ch = np.bincount(letters).argmax()
-            number += self.letters[ch]
-        number = number.replace(' ', '')
-        rnumber = ''
-        print(number)
-        for i in range(len(number)):
-            rnumber += self.__number_normalistion(number[i], self.number_format[i] == 'd')
-        self.__match_to_number(rnumber)
-        f = open(os.path.join(folder, rnumber + '.txt'), "a")
-        f.write(rnumber)
-        f.close()
-        print(self.date_ocr, self.number_ocr)
+                ch = np.bincount(letters).argmax()
+                number += self.letters[ch]
+            number = number.replace(' ', '')
+            rnumber = ''
+            print(number)
+            for i in range(len(number)):
+                rnumber += self.__number_normalistion(number[i], self.number_format[i] == 'd')
+            self.__match_to_number(rnumber)
+            f = open(os.path.join(folder, rnumber + '.txt'), "a")
+            f.write(rnumber)
+            f.close()
+            print(self.date_ocr, self.number_ocr)
+        except:
+            logging.exception('')
 
     def __number_normalistion(self, char, isdigist):
         if isdigist:
@@ -449,7 +452,6 @@ class RecognizeLp(object):
             self.number_ocr = number
             self.date_ocr = datetime.now()
             self.ok_ocr = True
-
 
     # load model for get license plate from image
     def __get_model_detect_lp(self):

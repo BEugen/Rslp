@@ -5,7 +5,7 @@ import math
 
 class MotionDetect:
     def __init__(self, region=(0, 50, 0, 50), limit_height=10, limit_width=10,
-                 blur=21, motion_obj_size=50, motoin_l_limit=0, motion_h_limit=15):
+                 blur=21, motion_obj_size=50, motoin_l_limit=0, motion_h_limit=11):
         self.limit_heigh = limit_height
         self.limit_width = limit_width
         self.motion_l_limit = motoin_l_limit
@@ -48,8 +48,9 @@ class MotionDetect:
         xd, yd = (math.fabs(x - self.x), math.fabs(y - self.y))
         if self.motion_l_limit <= xd < self.motion_h_limit \
                 and self.motion_l_limit <= yd < self.motion_h_limit \
-                and (self.x < 1.5 or self.y < 1.5) and (self.xo != 0 or self.yo != 0):
+                and (self.x < 1.5 and self.y < 1.5) and (self.xo != 0 or self.yo != 0):
             print('Recognise!!!')
+            print(xd, self.x, self.xo, '||', yd, self.y, self.yo)
             result = True
         self.xo = self.x
         self.yo = self.y

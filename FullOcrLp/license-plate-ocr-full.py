@@ -9,7 +9,7 @@ import time
 import motiondetect
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
-IMG_FOR_OCR = '/mnt/misk/misk/lplate/temp'
+IMG_FOR_OCR = 'E:\\temp\\chars'
 MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
@@ -22,10 +22,13 @@ def ocr(qo, qi):
             if not os.path.exists(fn):
                 os.makedirs(fn)
             image = qi.get()
-            image = cv2.equalizeHist(image)
+            #image = cv2.equalizeHist(image)
             cv2.imwrite(os.path.join(fn, str(uuid.uuid4()) + '.jpg'), image)
             rc.recognize(image, fn)
             qo.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr])
+            if rc.ok_ocr:
+                while qi.qsize() > 0:
+                    qi.get()
             print('End ocr')
         time.sleep(0.1)
 
@@ -36,8 +39,8 @@ def main():
     img_old = None
     number = ''
     x1, x2, y1, y2 = (125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
-    (x_o, y_o) = 0, 0
-    cap = cv2.VideoCapture(0)
+    #(x_o, y_o) = 0, 0
+    cap = cv2.VideoCapture('http://172.31.176.6/mjpg/video.mjpg')
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 768)
     qo = Queue()
@@ -50,20 +53,20 @@ def main():
         ret, image = cap.read()
         img = image[y1:y2, x1:x2]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(img, (21, 21), 0)
-        if img_old is None:
-            img_old = blur
-            continue
+        #blur = cv2.GaussianBlur(img, (21, 21), 0)
+       # if img_old is None:
+        #    img_old = blur
+       #     continue
         #ld = np.sum((img.astype("float") - img_old.astype("float")) ** 2)
         #ld /= float(img.shape[0] * img.shape[1])
         #ld = round(ld / 100.0, 2)
-        diff = cv2.absdiff(img_old, blur)
-        img_old = blur
-        ret, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
-        kernel = np.ones((5, 5), np.uint8)
-        thresh = cv2.dilate(thresh, kernel, iterations=3)
+        #diff = cv2.absdiff(img_old, blur)
+        #img_old = blur
+        #ret, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+        # kernel = np.ones((5, 5), np.uint8)
+        #thresh = cv2.dilate(thresh, kernel, iterations=3)
         #_, contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        imgc = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        #imgc = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
         # (x, y, w, h) = 0, 0, 0, 0
         # if len(contours) != 0:
         #     cnt = contours[0]
