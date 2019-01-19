@@ -2,11 +2,9 @@ import numpy as np
 import os
 import cv2
 import re
-import itertools
 from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
-import random
 import matplotlib.pyplot as plt
 import uuid
 import scipy.fftpack
@@ -135,7 +133,7 @@ class RecognizeLp(object):
 
     def __image_denoise(self, image, expandpixel=4, areapixel=20, radius=3, gamma1=0.2, gamma2=1.5, sigma=10,
                         levelthreh=50):
-        image = cv2.equalizeHist(image)
+        #image = cv2.equalizeHist(image)
         (rows, cols) = image.shape
         img_expand = np.full((rows + expandpixel * 2, cols), 255)
         img_expand[expandpixel:rows + expandpixel, :] = image[:, :]
@@ -193,7 +191,6 @@ class RecognizeLp(object):
             for i in range(1, len(index)):
                 if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
                     delta = int((index[i - 1] - prev_index) / 2) + prev_index
-                    print(delta - prev_char)
                     if (delta - prev_char) < char_size_min:
                         continue
                     prev_char = index[i - 1]
@@ -366,7 +363,6 @@ class RecognizeLp(object):
         except:
             logging.exception('')
             return None
-
 
     def __image_ocr_acc_level(self, images, acc_level=0.9):
         try:
