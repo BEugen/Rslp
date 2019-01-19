@@ -17,16 +17,16 @@ LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
 # IMG_PATH_ROOT = 'E:\\temp\\chars'
 LP_MAX_LENGHT = 9
-PREDICT_DETECT_LEVEL = 0.55
-PREDICT_FILTER_LEVEL = 0.7
+#PREDICT_DETECT_LEVEL = 0.55
+#PREDICT_FILTER_LEVEL = 0.7
+#PREDICT_CHAR_LEVEL = 0.9
 
 IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
 IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
 
-#ToDo need add check predict accuracy for recognize char
-#ToDo need check and modify image split chars: delta min chars need from end index min levels
 class RecognizeLp(object):
-    def __init__(self):
+    def __init__(self, predict_detect_level=0.55, predict_filter_level=0.7,
+                 predict_char_level=0.9):
         self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
@@ -35,8 +35,9 @@ class RecognizeLp(object):
         self.dlp = self.__get_model_detect_lp()
         self.flp = self.__get_model_filter_lp()
         self.ocrlp = self.__get_model_ocr_lp()
-        self.pdl = PREDICT_DETECT_LEVEL
-        self.fdl = PREDICT_FILTER_LEVEL
+        self.pdl = predict_detect_level
+        self.fdl = predict_filter_level
+        self.cdl = predict_char_level
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
@@ -366,6 +367,18 @@ class RecognizeLp(object):
             logging.exception('')
             return None
 
+
+    def __image_ocr_acc_level(self, images, acc_level=0.9):
+        try:
+            images = np.array(images) / 255
+            images = np.reshape(images, images.shape + (1,))
+            predict = self.ocrlp.predict(images)
+            acc_class_ndx = np.where(predict >= acc_level)
+            return acc_class_ndx[1]
+        except:
+            logging.exception('')
+            return None
+
     def __image_filter(self, images):
         try:
             images = np.array(images) / 255
@@ -399,7 +412,8 @@ class RecognizeLp(object):
             for imgs in self.images_arr:
                 nclass = []
                 if len(imgs) > 0:
-                    nclass = self.__image_ocr(imgs)
+                    #`nclass = self.__image_ocr(imgs)
+                    nclass = self.__image_ocr_acc_level(imgs, acc_level=self.cdl)
                     letters_class.append(nclass)
                 i = 0
                 for img in imgs:

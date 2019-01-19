@@ -18,7 +18,7 @@ import numpy as np
 
 def main():
     import cv2
-    cap = cv2.VideoCapture('http://172.31./mjpg/video.mjpg')
+    cap = cv2.VideoCapture(0)
     im_prev = None
     while True:
         ret, frame = cap.read()
@@ -29,8 +29,9 @@ def main():
             im_prev = img
             continue
         ld = np.sum((img.astype("float") - im_prev.astype("float")) ** 2)
-        ld /= float(im_p.shape[0] * im_p.shape[1])
+        ld /= float(img.shape[0] * img.shape[1])
         ld = round(ld / 100.0, 2)
+        im_prev = img
         x1, x2, y1, y2 = (125, 950, 280, 700)
         cv2.rectangle(im_p, (0, 0), (im_p.shape[1], 50), (255, 255, 255), cv2.FILLED)
         cv2.rectangle(im_p, (x1, y1), (x2, y2), (0, 0, 255), 2)
