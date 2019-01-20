@@ -97,7 +97,7 @@ class RecognizeLp(object):
             out = img[min_y:max_y + 1, min_x:max_x + 1]
             out = self.__image_rotate(out, i)
             out = cv2.resize(out, (256, 64))
-            # out = np.expand_dims(out.T, -1)/255
+            out = self.__image_pre_filter(out)
             img_gepotise.append(out)
         mdmax = np.max(md_arr)
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
@@ -375,6 +375,16 @@ class RecognizeLp(object):
             logging.exception('')
             return None
 
+    def __image_pre_filter(self, image, fill_value=140, blur=3, blur_iter=5):
+        try:
+            img = image.copy()
+            md = np.median(img)
+            img[img >= md] = fill_value
+            return cv2.GaussianBlur(img, (blur, blur), blur_iter)
+        except:
+            return None
+            logging.exception('')
+
     def __image_filter(self, images):
         try:
             images = np.array(images) / 255
@@ -437,6 +447,9 @@ class RecognizeLp(object):
             print(self.date_ocr, self.number_ocr)
         except:
             logging.exception('')
+
+    def image_filter(self, images):
+        return self.__image_filter(images)
 
     def __number_normalistion(self, char, isdigist):
         if isdigist:
