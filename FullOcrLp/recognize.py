@@ -55,68 +55,49 @@ class RecognizeLp(object):
         self.ok_ocr = False
 
     def __detect_lp(self, img):
-        img_crop = cv2.resize(img, (224, 224))
-        img_crop = img_crop / 255
-        img_crop = np.reshape(img_crop, (1, img_crop.shape[0], img_crop.shape[1], 1))
-        pred = self.dlp.predict(img_crop)[0]
-        mask = np.zeros(pred.shape)
-        mask[pred >= self.pdl] = 255
-        mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
-        mask = mask.astype(np.uint8)
-        _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if len(contours) == 0:
+        try:
+            img_crop = cv2.resize(img, (224, 224))
+            img_crop = img_crop / 255
+            img_crop = np.reshape(img_crop, (1, img_crop.shape[0], img_crop.shape[1], 1))
+            pred = self.dlp.predict(img_crop)[0]
+            mask = np.zeros(pred.shape)
+            mask[pred >= self.pdl] = 255
+            mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+            mask = mask.astype(np.uint8)
+            _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if len(contours) == 0:
+                return None
+            result = []
+            for cont in contours:
+                epsilon = 0.005 * cv2.arcLength(cont, True)
+                approx = cv2.approxPolyDP(cont, epsilon, True)
+                (x, y, w, h) = cv2.boundingRect(approx)
+                area = cv2.contourArea(approx)
+                print(x, y, h/w if w > 0 else 0, area)
+                img_gepotise = []
+                md_arr = []
+                if w > 0 and h/w > self.detect_k and area > self.detect_area:
+                    for i in range(-10, 10):
+                        out = mask[y-1:y+h + 1, x-1:x+w + 1]
+                        out = self.__image_rotate(out, i)
+                        md = np.median(np.mean(out, axis=1))
+                        md_arr.append(md)
+                        out = img[y-1:y+h + 1, x-1:x+w + 1]
+                        out = self.__image_rotate(out, i)
+                        out = cv2.resize(out, (256, 64))
+                        img_gepotise.append(out)
+                    if len(md_arr) == 0:
+                        continue
+                    mdmax = np.max(md_arr)
+                    maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
+                    images = np.array(img_gepotise)[maxs]
+                    for im in images:
+                        result.append(im)
+                        result.append(self.__image_pre_filter(im))
+            return np.array(result)
+        except:
+            logging.exception('')
             return None
-        #cnt = contours[0]
-        #max_area = cv2.contourArea(cnt)
-        img_gepotise = []
-        md_arr = []
-        for cont in contours:
-            epsilon = 0.005 * cv2.arcLength(cont, True)
-            approx = cv2.approxPolyDP(cont, epsilon, True)
-            (x, y, w, h) = cv2.boundingRect(approx)
-            area = cv2.contourArea(approx)
-            print(x, y, h/w if w > 0 else 0, area)
-            if w > 0 and h/w > self.detect_k and area > self.detect_area:
-                for i in range(-10, 10):
-                    out = mask[y-1:y+h + 1, x-1:x+w + 1]
-                    out = self.__image_rotate(out, i)
-                    md = np.median(np.mean(out, axis=1))
-                    md_arr.append(md)
-                    out = img[y-1:y+h + 1, x-1:x+w + 1]
-                    out = self.__image_rotate(out, i)
-                    out = cv2.resize(out, (256, 64))
-                    img_gepotise.append(out)
-       #     if cv2.contourArea(cont) > max_area:
-       #         cnt = cont
-       #         max_area = cv2.contourArea(cont)
-       # epsilon = 0.025 * cv2.arcLength(cnt, True)
-       #  approx = cv2.approxPolyDP(cnt, epsilon, True)
-       #  (x, y, w, h) = cv2.boundingRect(approx)
-       #  print(x, y, w, h, cv2.contourArea(approx))
-       #  approx = np.reshape(approx, (approx.shape[0], 2))
-       #  min_x, min_y = np.min(approx, axis=0)
-       #  max_x, max_y = np.max(approx, axis=0)
-       #  out = np.zeros_like(img)
-       #  out[mask == 255] = img[mask == 255]
-       #  img_gepotise = []
-       #  md_arr = []
-       #  for i in range(-10, 10):
-       #      out = mask[min_y:max_y + 1, min_x:max_x + 1]
-       #      out = self.__image_rotate(out, i)
-       #      md = np.median(np.mean(out, axis=1))
-       #      md_arr.append(md)
-       #      out = img[min_y:max_y + 1, min_x:max_x + 1]
-       #      out = self.__image_rotate(out, i)
-       #      out = cv2.resize(out, (256, 64))
-       #      img_gepotise.append(out)
-        mdmax = np.max(md_arr)
-        maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
-        images = np.array(img_gepotise)[maxs]
-        result = []
-        for img in images:
-            result.append(img)
-            result.append(self.__image_pre_filter(img))
-        return np.array(result)
 
     def __image_clear_border(self, image, radius=3):
         img = image.copy()
@@ -359,6 +340,8 @@ class RecognizeLp(object):
             kf = y / image.shape[0]
             x = int(image.shape[1] * kf)
             (ys, xs) = (64, 64)
+            if x > xs:
+                x = xs - 10
             image = cv2.resize(image, (x, y))
             imr = np.zeros((ys, xs))
             yo = int(0.5 * ys - image.shape[0] * 0.5)
@@ -456,8 +439,9 @@ class RecognizeLp(object):
                 for img in imgs:
                     if img is None:
                         continue
-                    cv2.imwrite(os.path.join(folder,
-                                             self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
+                    if i < len(nclass):
+                        cv2.imwrite(os.path.join(folder,
+                                    self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
                     i += 1
             number = ''
             for letters in letters_class:
