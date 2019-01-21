@@ -23,7 +23,7 @@ IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
 IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
 
 class RecognizeLp(object):
-    def __init__(self, predict_detect_level=0.55, predict_filter_level=0.7,
+    def __init__(self, detect_koeff=0.2, detect_area=1100.0, predict_detect_level=0.55, predict_filter_level=0.7,
                  predict_char_level=0.9):
         self.cntf = 0
         self.folder_nn = 'nn/'
@@ -36,6 +36,8 @@ class RecognizeLp(object):
         self.pdl = predict_detect_level
         self.fdl = predict_filter_level
         self.cdl = predict_char_level
+        self.detect_k = detect_koeff
+        self.detect_area = detect_area
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.images_arr = []
@@ -52,16 +54,6 @@ class RecognizeLp(object):
             self.images_arr.append([])
         self.ok_ocr = False
 
-    # def __plot_images(self, images, grey):
-    #     fig = plt.figure(figsize=(15, 18))
-    #     for i in range(min(16, len(images))):
-    #         fig.add_subplot(4, 4, i + 1)
-    #         if grey:
-    #             plt.imshow(images[i], cmap='gray')
-    #         else:
-    #             plt.imshow(images[i])
-    #     plt.show()
-
     def __detect_lp(self, img):
         img_crop = cv2.resize(img, (224, 224))
         img_crop = img_crop / 255
@@ -71,37 +63,60 @@ class RecognizeLp(object):
         mask[pred >= self.pdl] = 255
         mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
         mask = mask.astype(np.uint8)
-        _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+        _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if len(contours) == 0:
             return None
-        cnt = contours[0]
-        max_area = cv2.contourArea(cnt)
-        for cont in contours:
-            if cv2.contourArea(cont) > max_area:
-                cnt = cont
-                max_area = cv2.contourArea(cont)
-        epsilon = 0.025 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-        approx = np.reshape(approx, (approx.shape[0], 2))
-        min_x, min_y = np.min(approx, axis=0)
-        max_x, max_y = np.max(approx, axis=0)
-        out = np.zeros_like(img)
-        out[mask == 255] = img[mask == 255]
+        #cnt = contours[0]
+        #max_area = cv2.contourArea(cnt)
         img_gepotise = []
         md_arr = []
-        for i in range(-10, 10):
-            out = mask[min_y:max_y + 1, min_x:max_x + 1]
-            out = self.__image_rotate(out, i)
-            md = np.median(np.mean(out, axis=1))
-            md_arr.append(md)
-            out = img[min_y:max_y + 1, min_x:max_x + 1]
-            out = self.__image_rotate(out, i)
-            out = cv2.resize(out, (256, 64))
-            out = self.__image_pre_filter(out)
-            img_gepotise.append(out)
+        for cont in contours:
+            epsilon = 0.005 * cv2.arcLength(cont, True)
+            approx = cv2.approxPolyDP(cont, epsilon, True)
+            (x, y, w, h) = cv2.boundingRect(approx)
+            area = cv2.contourArea(approx)
+            print(x, y, h/w if w > 0 else 0, area)
+            if w > 0 and h/w > self.detect_k and area > self.detect_area:
+                for i in range(-10, 10):
+                    out = mask[y-1:y+h + 1, x-1:x+w + 1]
+                    out = self.__image_rotate(out, i)
+                    md = np.median(np.mean(out, axis=1))
+                    md_arr.append(md)
+                    out = img[y-1:y+h + 1, x-1:x+w + 1]
+                    out = self.__image_rotate(out, i)
+                    out = cv2.resize(out, (256, 64))
+                    img_gepotise.append(out)
+       #     if cv2.contourArea(cont) > max_area:
+       #         cnt = cont
+       #         max_area = cv2.contourArea(cont)
+       # epsilon = 0.025 * cv2.arcLength(cnt, True)
+       #  approx = cv2.approxPolyDP(cnt, epsilon, True)
+       #  (x, y, w, h) = cv2.boundingRect(approx)
+       #  print(x, y, w, h, cv2.contourArea(approx))
+       #  approx = np.reshape(approx, (approx.shape[0], 2))
+       #  min_x, min_y = np.min(approx, axis=0)
+       #  max_x, max_y = np.max(approx, axis=0)
+       #  out = np.zeros_like(img)
+       #  out[mask == 255] = img[mask == 255]
+       #  img_gepotise = []
+       #  md_arr = []
+       #  for i in range(-10, 10):
+       #      out = mask[min_y:max_y + 1, min_x:max_x + 1]
+       #      out = self.__image_rotate(out, i)
+       #      md = np.median(np.mean(out, axis=1))
+       #      md_arr.append(md)
+       #      out = img[min_y:max_y + 1, min_x:max_x + 1]
+       #      out = self.__image_rotate(out, i)
+       #      out = cv2.resize(out, (256, 64))
+       #      img_gepotise.append(out)
         mdmax = np.max(md_arr)
         maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
-        return np.array(img_gepotise)[maxs]
+        images = np.array(img_gepotise)[maxs]
+        result = []
+        for img in images:
+            result.append(img)
+            result.append(self.__image_pre_filter(img))
+        return np.array(result)
 
     def __image_clear_border(self, image, radius=3):
         img = image.copy()
@@ -271,24 +286,40 @@ class RecognizeLp(object):
         #ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
         img = cv2.morphologyEx(image.copy(), cv2.MORPH_CLOSE, kernel)
-        (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnt = contours[0]
-        max_area = cv2.contourArea(cnt)
-        for cont in contours:
-            if cv2.contourArea(cont) > max_area:
-                cnt = cont
-                max_area = cv2.contourArea(cont)
-        epsilon = 0.005 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-        approx = np.reshape(approx, (approx.shape[0], 2))
-        min_x, min_y = np.min(approx, axis=0)
-        max_x, max_y = np.max(approx, axis=0)
-        # out = np.zeros_like(image)
-        # cv2.fillPoly(out, pts=[cnt], color=255)
-        # out[out == 255] = image[out == 255]
-        img = np.zeros((max_y - min_y, max_x - min_x))
-        img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
         img = self.__bw_area_open(np.uint8(img), 5)
+        (min_x, min_y, max_x, max_y) = img.shape[1], img.shape[0], 0, 0
+        (_, contours, _) = cv2.findContours(img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for cont in contours:
+            epsilon = 0.005 * cv2.arcLength(cont, True)
+            approx = cv2.approxPolyDP(cont, epsilon, True)
+            (x, y, w, h) = cv2.boundingRect(approx)
+            min_x = x if x < min_x else min_x
+            min_y = y if y < min_y else min_y
+            max_x = (x + w) if max_x < (x + w) else max_x
+            max_y = (y + h) if max_y < (y + h) else max_y
+        im = np.zeros((max_y - min_y, max_x - min_x))
+        im[:, :] = img[min_y:max_y, min_x:max_x]
+        return im
+
+
+        # (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # cnt = contours[0]
+        # max_area = cv2.contourArea(cnt)
+        # for cont in contours:
+        #     if cv2.contourArea(cont) > max_area:
+        #         cnt = cont
+        #         max_area = cv2.contourArea(cont)
+        # epsilon = 0.005 * cv2.arcLength(cnt, True)
+        # approx = cv2.approxPolyDP(cnt, epsilon, True)
+        # approx = np.reshape(approx, (approx.shape[0], 2))
+        # min_x, min_y = np.min(approx, axis=0)
+        # max_x, max_y = np.max(approx, axis=0)
+        # # out = np.zeros_like(image)
+        # # cv2.fillPoly(out, pts=[cnt], color=255)
+        # # out[out == 255] = image[out == 255]
+        # img = np.zeros((max_y - min_y, max_x - min_x))
+        # img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
+        # img = self.__bw_area_open(np.uint8(img), 5)
         return img
 
     def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
@@ -375,15 +406,15 @@ class RecognizeLp(object):
             logging.exception('')
             return None
 
-    def __image_pre_filter(self, image, fill_value=140, blur=3, blur_iter=5):
+    def __image_pre_filter(self, image, fill_value=140, blur=3, blur_iter=3):
         try:
             img = image.copy()
             md = np.median(img)
             img[img >= md] = fill_value
             return cv2.GaussianBlur(img, (blur, blur), blur_iter)
         except:
-            return None
             logging.exception('')
+            return None
 
     def __image_filter(self, images):
         try:
@@ -450,6 +481,9 @@ class RecognizeLp(object):
 
     def image_filter(self, images):
         return self.__image_filter(images)
+
+    def image_detect(self, image):
+        return self.__detect_lp(image)
 
     def __number_normalistion(self, char, isdigist):
         if isdigist:
