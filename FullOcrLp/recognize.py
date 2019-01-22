@@ -38,6 +38,7 @@ class RecognizeLp(object):
         self.cdl = predict_char_level
         self.detect_k = detect_koeff
         self.detect_area = detect_area
+        self.detect_number = []
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
         self.number_format = 'cdddccddd'
@@ -408,6 +409,7 @@ class RecognizeLp(object):
     def recognize(self, image, folder):
         try:
             self.ok_ocr = False
+            self.detect_number = []
             if not os.path.exists(folder):
                 os.makedirs(folder)
             image_packet = self.__detect_lp(image)
@@ -423,6 +425,7 @@ class RecognizeLp(object):
                             cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
                         images_char = self.__image_split(img, folder)
                         self.__image_to_chars(images_char, folder)
+            self.__select_ocr_number()
         except:
             logging.exception('')
 
@@ -437,7 +440,6 @@ class RecognizeLp(object):
 
     #ocr one iimage number
     def __image_to_chars(self, images, folder):
-        lp_numbers = []
         for imgs in images:
             nclass = []
             if len(imgs) > 0:
@@ -461,11 +463,13 @@ class RecognizeLp(object):
             f = open(os.path.join(folder, number + '.txt'), "a")
             f.write(number)
             f.close()
-            print(self.date_ocr, self.number_ocr)
+            print(number)
             if self.__match_to_number(number):
-                lp_numbers.append(number)
-        if len(lp_numbers) != 0:
-            self.number_ocr = self.__max_number_detect(lp_numbers)[0]
+                self.detect_number.append(number)
+
+    def __select_ocr_number(self):
+        if len(self.detect_number) != 0:
+            self.number_ocr = self.__max_number_detect(self.detect_number)[0]
             self.date_ocr = datetime.now()
             self.ok_ocr = True
 
