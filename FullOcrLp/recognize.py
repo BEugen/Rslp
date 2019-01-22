@@ -40,18 +40,9 @@ class RecognizeLp(object):
         self.detect_area = detect_area
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
-        self.images_arr = []
-        self.char_position = [25, 54, 81, 108, 135, 162, 177, 202, 227]
-        # 0   1   2   3    4     5   6    7     8
         self.number_format = 'cdddccddd'
         self.number_ocr = ''
         self.date_ocr = ''
-        self.ok_ocr = False
-
-    def __images_arr_init(self):
-        self.images_arr = []
-        for i in range(0, LP_MAX_LENGHT):
-            self.images_arr.append([])
         self.ok_ocr = False
 
     def __detect_lp(self, img):
@@ -91,9 +82,11 @@ class RecognizeLp(object):
                     mdmax = np.max(md_arr)
                     maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
                     images = np.array(img_gepotise)[maxs]
+                    img_packet = []
                     for im in images:
-                        result.append(im)
-                        result.append(self.__image_pre_filter(im))
+                        img_packet.append(im)
+                        img_packet.append(self.__image_pre_filter(im))
+                        result.append(img_packet)
             return np.array(result)
         except:
             logging.exception('')
@@ -199,17 +192,16 @@ class RecognizeLp(object):
             for i in range(1, len(mask_index_split)):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
                     mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
-            idx = 0
+            img_chars = []
             for i in range(1, len(mask_index_split)):
                 out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
                 out = self.__image_normalisation(out)
-                self.images_arr[idx].append(out)
-                idx += 1
+                img_chars.append(out)
             y = np.full((len(mask_index_split),), 20.0)
             plt.scatter(mask_index_split, y, c='blue', s=40)
             plt.savefig(os.path.join(folder, str(uuid.uuid4()) + '.png'))
             plt.close()
-            return True
+            return img_chars
         except:
             logging.exception('')
             return False
@@ -355,12 +347,11 @@ class RecognizeLp(object):
     def __image_conversion(self, imglp, folder):
         try:
             imglp = np.squeeze(imglp, -1)
-            # result = self.__get_split_mask(imglp, folder)
             result = self.__split_number(imglp, folder)
             return result
         except:
             logging.exception('')
-            return False
+            return None
 
     def __image_rotate(self, img, angle):
         image_center = tuple(np.array(img.shape[1::-1]) / 2)
@@ -416,52 +407,77 @@ class RecognizeLp(object):
 
     def recognize(self, image, folder):
         try:
-            self.__images_arr_init()
+            self.ok_ocr = False
             if not os.path.exists(folder):
                 os.makedirs(folder)
-            img = self.__detect_lp(image)
-            if img is not None:
-                for im in img:
-                    cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
-                img = self.__image_filter(img)
+            image_packet = self.__detect_lp(image)
+            if image_packet is None:
+                return
+            for img in image_packet:
                 if img is not None:
                     for im in img:
                         cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
-                        self.__image_conversion(im, folder)
-            letters_class = []
-            for imgs in self.images_arr:
-                nclass = []
-                if len(imgs) > 0:
-                    #`nclass = self.__image_ocr(imgs)
-                    nclass = self.__image_ocr_acc_level(imgs, acc_level=self.cdl)
-                    letters_class.append(nclass)
+                    img = self.__image_filter(img)
+                    if img is not None:
+                        for im in img:
+                            cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '.jpg'), im)
+                        images_char = self.__image_split(img, folder)
+                        self.__image_to_chars(images_char, folder)
+        except:
+            logging.exception('')
+
+    # split image to chars images
+    def __image_split(self, images, folder):
+        images_chars = []
+        for image in images:
+            image_chars = self.__image_conversion(image, folder)
+            if image_chars is not None:
+                images_chars.append(image_chars)
+        return images_chars
+
+    #ocr one iimage number
+    def __image_to_chars(self, images, folder):
+        lp_numbers = []
+        for imgs in images:
+            nclass = []
+            if len(imgs) > 0:
+                nclass = self.__image_ocr_acc_level(imgs, acc_level=self.cdl)
                 i = 0
                 for img in imgs:
                     if img is None:
                         continue
                     if i < len(nclass):
                         cv2.imwrite(os.path.join(folder,
-                                    self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
+                                                 self.letters[nclass[i]] + '_' + str(uuid.uuid4()) + '.jpg'), img)
                     i += 1
             number = ''
-            for letters in letters_class:
-                if letters is None:
-                    number += ' '
+            if len(nclass) == 0:
+                continue
+            for i in range(len(nclass)):
+                oc = self.letters[nclass[i]]
+                if i > len(self.number_format):
                     continue
-                ch = np.bincount(letters).argmax()
-                number += self.letters[ch]
-            number = number.replace(' ', '')
-            rnumber = ''
-            print(number)
-            for i in range(len(number)):
-                rnumber += self.__number_normalistion(number[i], self.number_format[i] == 'd')
-            self.__match_to_number(rnumber)
-            f = open(os.path.join(folder, rnumber + '.txt'), "a")
-            f.write(rnumber)
+                number += self.__number_normalistion(oc, self.number_format[i] == 'd')
+            f = open(os.path.join(folder, number + '.txt'), "a")
+            f.write(number)
             f.close()
             print(self.date_ocr, self.number_ocr)
-        except:
-            logging.exception('')
+            if self.__match_to_number(number):
+                lp_numbers.append(number)
+        if len(lp_numbers) != 0:
+            self.number_ocr = self.__max_number_detect(lp_numbers)[0]
+            self.date_ocr = datetime.now()
+            self.ok_ocr = True
+
+    def __max_number_detect(self, numbers):
+            count = {}
+            max_number = []
+            for number in set(numbers):
+                count[number] = numbers.count(number)
+            for k, v in count.items():
+                if v == max(count.values()):
+                    max_number.append(k)
+            return max_number
 
     def image_filter(self, images):
         return self.__image_filter(images)
@@ -491,10 +507,8 @@ class RecognizeLp(object):
 
     def __match_to_number(self, number):
         regex = r"\D\d{3}\D{2}\d{2,3}"
-        if re.findall(regex, number):
-            self.number_ocr = number
-            self.date_ocr = datetime.now()
-            self.ok_ocr = True
+        return re.findall(regex, number)
+
 
     # load model for get license plate from image
     def __get_model_detect_lp(self):

@@ -96,7 +96,7 @@ def main():
         if qo.qsize() > 0:
             ocr_data = qo.get()
             if ocr_data[0]:
-                number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M.%S')
+                number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                 cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
             else:
                 cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)

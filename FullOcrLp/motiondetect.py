@@ -34,17 +34,27 @@ class MotionDetect:
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         (x, y, w, h) = 0, 0, 0, 0
         if len(contours) != 0:
-            cnt = contours[0]
-            max_area = cv2.contourArea(cnt)
             for cont in contours:
-                if cv2.contourArea(cont) > max_area:
-                    cnt = cont
-                    max_area = cv2.contourArea(cont)
-            epsilon = 0.025 * cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
-            (x, y, w, h) = cv2.boundingRect(approx)
-            if h < self.motion_obj_size and w < self.motion_obj_size:
-                return False
+                epsilon = 0.025 * cv2.arcLength(cont, True)
+                approx = cv2.approxPolyDP(cont, epsilon, True)
+                (x, y, w, h) = cv2.boundingRect(approx)
+                if h < self.motion_obj_size and w < self.motion_obj_size:
+                    (x, y, w, h) = 0, 0, 0, 0
+                    continue
+                else:
+                    break
+
+            # cnt = contours[0]
+            # max_area = cv2.contourArea(cnt)
+            # for cont in contours:
+            #     if cv2.contourArea(cont) > max_area:
+            #         cnt = cont
+            #         max_area = cv2.contourArea(cont)
+            # epsilon = 0.025 * cv2.arcLength(cnt, True)
+            # approx = cv2.approxPolyDP(cnt, epsilon, True)
+            # (x, y, w, h) = cv2.boundingRect(approx)
+            # if h < self.motion_obj_size and w < self.motion_obj_size:
+            #     return False
         xd, yd = (math.fabs(x - self.x), math.fabs(y - self.y))
         if self.motion_l_limit <= xd < self.motion_h_limit \
                 and self.motion_l_limit <= yd < self.motion_h_limit \
