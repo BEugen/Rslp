@@ -13,18 +13,11 @@ from datetime import datetime
 
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
-# IMG_PATH_ROOT = 'E:\\temp\\chars'
 LP_MAX_LENGHT = 9
-#PREDICT_DETECT_LEVEL = 0.55
-#PREDICT_FILTER_LEVEL = 0.7
-#PREDICT_CHAR_LEVEL = 0.9
-
-IMG_CROP = '/mnt/misk/misk/lplate/lp-un-mask/img'
-IMG_MASK = '/mnt/misk/misk/lplate/lp-un-mask/mask'
 
 class RecognizeLp(object):
     def __init__(self, detect_koeff=0.2, detect_area=1100.0, predict_detect_level=0.55, predict_filter_level=0.7,
-                 predict_char_level=0.9):
+                 predict_char_level=0.95):
         self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
@@ -172,7 +165,7 @@ class RecognizeLp(object):
             index = np.where(mean_imgs > split_level)
             min_lp = np.min(index)
             if min_lp > 2 * char_size_min:
-                return False
+                return []
             index = np.where(mean_imgs < split_level)
             index = index[0] if len(index) > 0 else []
             prev_index = index[0]
@@ -258,9 +251,9 @@ class RecognizeLp(object):
 
     def __image_crop(self, image):
         #ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
-        img = cv2.morphologyEx(image.copy(), cv2.MORPH_CLOSE, kernel)
-        img = self.__bw_area_open(np.uint8(img), 5)
+        ##kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
+        ##img = cv2.morphologyEx(image.copy(), cv2.MORPH_CLOSE, kernel)
+        img = self.__bw_area_open(np.uint8(image.copy()), 5)
         (min_x, min_y, max_x, max_y) = img.shape[1], img.shape[0], 0, 0
         (_, contours, _) = cv2.findContours(img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cont in contours:
@@ -294,7 +287,7 @@ class RecognizeLp(object):
         # img = np.zeros((max_y - min_y, max_x - min_x))
         # img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
         # img = self.__bw_area_open(np.uint8(img), 5)
-        return img
+        #return img
 
     def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
         mean_imgs = np.mean(img, axis=axis)
@@ -472,6 +465,7 @@ class RecognizeLp(object):
             self.number_ocr = self.__max_number_detect(self.detect_number)[0]
             self.date_ocr = datetime.now()
             self.ok_ocr = True
+            print('Dtect number = %s' % self.number_ocr)
 
     def __max_number_detect(self, numbers):
             count = {}
