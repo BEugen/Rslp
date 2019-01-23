@@ -15,8 +15,9 @@ LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
 LP_MAX_LENGHT = 9
 
+
 class RecognizeLp(object):
-    def __init__(self, detect_koeff=0.2, detect_area=1100.0, predict_detect_level=0.55, predict_filter_level=0.7,
+    def __init__(self, detect_koeff=0.2, detect_area=1100.0, predict_detect_level=0.55, predict_filter_level=0.6,
                  predict_char_level=0.95):
         self.cntf = 0
         self.folder_nn = 'nn/'
@@ -41,7 +42,8 @@ class RecognizeLp(object):
 
     def __detect_lp(self, img):
         try:
-            img_crop = cv2.resize(img, (224, 224))
+            img_crop = cv2.GaussianBlur(img.copy(), (5, 5), 1)
+            img_crop = cv2.resize(img_crop, (224, 224))
             img_crop = img_crop / 255
             img_crop = np.reshape(img_crop, (1, img_crop.shape[0], img_crop.shape[1], 1))
             pred = self.dlp.predict(img_crop)[0]
@@ -58,16 +60,16 @@ class RecognizeLp(object):
                 approx = cv2.approxPolyDP(cont, epsilon, True)
                 (x, y, w, h) = cv2.boundingRect(approx)
                 area = cv2.contourArea(approx)
-                print(x, y, h/w if w > 0 else 0, area)
+                print(x, y, h / w if w > 0 else 0, area)
                 img_gepotise = []
                 md_arr = []
-                if w > 0 and h/w > self.detect_k and area > self.detect_area:
+                if w > 0 and h / w > self.detect_k and area > self.detect_area:
                     for i in range(-10, 10):
-                        out = mask[y-1:y+h + 1, x-1:x+w + 1]
+                        out = mask[y - 1:y + h + 1, x - 2:x + w + 2]
                         out = self.__image_rotate(out, i)
                         md = np.median(np.mean(out, axis=1))
                         md_arr.append(md)
-                        out = img[y-1:y+h + 1, x-1:x+w + 1]
+                        out = img[y - 1:y + h + 1, x - 1:x + w + 1]
                         out = self.__image_rotate(out, i)
                         out = cv2.resize(out, (256, 64))
                         img_gepotise.append(out)
@@ -116,7 +118,7 @@ class RecognizeLp(object):
 
     def __image_denoise(self, image, expandpixel=4, areapixel=20, radius=3, gamma1=0.2, gamma2=1.5, sigma=10,
                         levelthreh=50):
-        #image = cv2.equalizeHist(image)
+        # image = cv2.equalizeHist(image)
         (rows, cols) = image.shape
         img_expand = np.full((rows + expandpixel * 2, cols), 255)
         img_expand[expandpixel:rows + expandpixel, :] = image[:, :]
@@ -170,35 +172,52 @@ class RecognizeLp(object):
             index = index[0] if len(index) > 0 else []
             prev_index = index[0]
             prev_char = -1 * char_size_min
-            ch_ind = 0
+            # ch_ind = 0
+            # for i in range(1, len(index)):
+            #     if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
+            #         delta = int((index[i - 1] - prev_index) / 2) + prev_index
+            #         if (delta - prev_char) < char_size_min:
+            #             continue
+            #         prev_char = index[i - 1]
+            #         mask_index_split.append(delta)
+            #         ch_ind += 1
+            #         if ch_ind == 7:
+            #             char_size_min -= 4
+            #         prev_index = index[i]
+            # char_size_min += 4
+            # for i in range(1, len(mask_index_split)):
+            #     if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
+            #         mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+            mask_crop = []
             for i in range(1, len(index)):
                 if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
-                    delta = int((index[i - 1] - prev_index) / 2) + prev_index
-                    if (delta - prev_char) < char_size_min:
-                        continue
-                    prev_char = index[i - 1]
+                    delta = int((index[i - 1] - prev_index) / 2 + prev_index)
                     mask_index_split.append(delta)
-                    ch_ind += 1
-                    if ch_ind == 7:
-                        char_size_min -= 4
                     prev_index = index[i]
-            char_size_min += 4
+            # char_size_min +=4
+            ch_ind = 0
+            mask_crop.append(mask_index_split[0])
             for i in range(1, len(mask_index_split)):
+                # if ch_ind == 7:
+                #    char_size_min -= 2
+                # ch_ind += 1
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
-                    mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+                    mask_crop.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+                if (mask_index_split[i] - mask_index_split[i - 1]) >= char_size_min:
+                    mask_crop.append(mask_index_split[i])
             img_chars = []
-            for i in range(1, len(mask_index_split)):
-                out = self.__image_crop(img[:, mask_index_split[i - 1]: mask_index_split[i]])
+            for i in range(1, len(mask_crop)):
+                out = self.__image_crop(img[:, mask_crop[i - 1]: mask_crop[i]])
                 out = self.__image_normalisation(out)
                 img_chars.append(out)
-            y = np.full((len(mask_index_split),), 20.0)
-            plt.scatter(mask_index_split, y, c='blue', s=40)
+            y = np.full((len(mask_crop),), 20.0)
+            plt.scatter(mask_crop, y, c='blue', s=40)
             plt.savefig(os.path.join(folder, str(uuid.uuid4()) + '.png'))
             plt.close()
             return img_chars
         except:
             logging.exception('')
-            return False
+            return []
 
     def __get_split_mask(self, image, folder, char_size_min=20, char_size=20,
                          lfirstindex=30, areapixel=5, split_level=10):
@@ -250,7 +269,7 @@ class RecognizeLp(object):
             return False
 
     def __image_crop(self, image):
-        #ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        # ret, img = cv2.threshold(image.copy(), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         ##kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))
         ##img = cv2.morphologyEx(image.copy(), cv2.MORPH_CLOSE, kernel)
         img = self.__bw_area_open(np.uint8(image.copy()), 5)
@@ -264,10 +283,9 @@ class RecognizeLp(object):
             min_y = y if y < min_y else min_y
             max_x = (x + w) if max_x < (x + w) else max_x
             max_y = (y + h) if max_y < (y + h) else max_y
-        im = np.zeros((max_y - min_y, max_x - min_x))
-        im[:, :] = img[min_y:max_y, min_x:max_x]
+        #im = np.zeros((max_y - min_y, max_x - min_x))
+        im = img[min_y:max_y, min_x:max_x]
         return im
-
 
         # (_, contours, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # cnt = contours[0]
@@ -287,7 +305,7 @@ class RecognizeLp(object):
         # img = np.zeros((max_y - min_y, max_x - min_x))
         # img[:img.shape[0], :img.shape[1]] = image[min_y:max_y, min_x:max_x]
         # img = self.__bw_area_open(np.uint8(img), 5)
-        #return img
+        # return img
 
     def __img_crop_next(self, img, level_blank=5, level_find=100, axis=0, lt=True):
         mean_imgs = np.mean(img, axis=axis)
@@ -323,6 +341,8 @@ class RecognizeLp(object):
     def __image_normalisation(self, image):
         try:
             y = 45
+            if image.shape[0] == 0:
+                return None
             kf = y / image.shape[0]
             x = int(image.shape[1] * kf)
             (ys, xs) = (64, 64)
@@ -374,11 +394,12 @@ class RecognizeLp(object):
             logging.exception('')
             return None
 
-    def __image_pre_filter(self, image, fill_value=140, blur=3, blur_iter=3):
+    def __image_pre_filter(self, image, fill_value=140, fill_value_zero=50, blur=3, blur_iter=3):
         try:
             img = image.copy()
             md = np.median(img)
             img[img >= md] = fill_value
+            img[img < (md*0.6)] = fill_value_zero
             return cv2.GaussianBlur(img, (blur, blur), blur_iter)
         except:
             logging.exception('')
@@ -431,7 +452,7 @@ class RecognizeLp(object):
                 images_chars.append(image_chars)
         return images_chars
 
-    #ocr one iimage number
+    # ocr one iimage number
     def __image_to_chars(self, images, folder):
         for imgs in images:
             nclass = []
@@ -465,17 +486,17 @@ class RecognizeLp(object):
             self.number_ocr = self.__max_number_detect(self.detect_number)[0]
             self.date_ocr = datetime.now()
             self.ok_ocr = True
-            print('Dtect number = %s' % self.number_ocr)
+            print('Detect number = %s' % self.number_ocr)
 
     def __max_number_detect(self, numbers):
-            count = {}
-            max_number = []
-            for number in set(numbers):
-                count[number] = numbers.count(number)
-            for k, v in count.items():
-                if v == max(count.values()):
-                    max_number.append(k)
-            return max_number
+        count = {}
+        max_number = []
+        for number in set(numbers):
+            count[number] = numbers.count(number)
+        for k, v in count.items():
+            if v == max(count.values()):
+                max_number.append(k)
+        return max_number
 
     def image_filter(self, images):
         return self.__image_filter(images)
@@ -506,7 +527,6 @@ class RecognizeLp(object):
     def __match_to_number(self, number):
         regex = r"\D\d{3}\D{2}\d{2,3}"
         return re.findall(regex, number)
-
 
     # load model for get license plate from image
     def __get_model_detect_lp(self):
