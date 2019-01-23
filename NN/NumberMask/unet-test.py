@@ -132,7 +132,7 @@ def labelVisualize(predict_level, img):
 
 def main(args):
     model = Unet((IMG_SIZE[0], IMG_SIZE[1], 1))
-    model.load_weights('result-un-nb-nn/weights-08-un-nb-nn.h5')
+    model.load_weights('result-un-nb-nn/weights-20-un-nb-nn.h5')
 
     testgene = testGenerator(IMG_TEST)
     results = model.predict_generator(testgene, 3600, verbose=1)
