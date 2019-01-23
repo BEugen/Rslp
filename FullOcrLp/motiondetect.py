@@ -19,6 +19,8 @@ class MotionDetect:
         self.y = 0
         self.xo = 0
         self.yo = 0
+        self.w = 0
+        self.h = 0
 
     def detect(self, image):
         result = False
@@ -42,6 +44,8 @@ class MotionDetect:
                     (x, y, w, h) = 0, 0, 0, 0
                     continue
                 else:
+                    self.w = w
+                    self.h = h
                     break
 
             # cnt = contours[0]
@@ -60,7 +64,7 @@ class MotionDetect:
                 and self.motion_l_limit <= yd < self.motion_h_limit \
                 and (self.x < 1.5 and self.y < 1.5) and (self.xo != 0 or self.yo != 0):
             print('Recognise!!!')
-            print(xd, self.x, self.xo, '||', yd, self.y, self.yo)
+            print(xd, self.x, self.xo, '||', yd, self.y, self.yo, '||', self.w, self.h)
             result = True
         self.xo = self.x
         self.yo = self.y
