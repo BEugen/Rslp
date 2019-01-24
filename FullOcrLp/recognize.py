@@ -17,8 +17,8 @@ LP_MAX_LENGHT = 9
 
 
 class RecognizeLp(object):
-    def __init__(self, detect_koeff=0.2, detect_area=1100.0, predict_detect_level=0.55, predict_filter_level=0.6,
-                 predict_char_level=0.95):
+    def __init__(self, detect_koeff=0.2, detect_area=600.0, predict_detect_level=0.55, predict_filter_level=0.6,
+                 predict_char_level=0.90):
         self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
