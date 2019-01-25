@@ -168,39 +168,19 @@ class RecognizeLp(object):
             min_lp = np.min(index)
             if min_lp > 2 * char_size_min:
                 return []
+            min_lp = min_lp - 2 if (min_lp - 2) > 0 else min_lp
             index = np.where(mean_imgs < split_level)
             index = index[0] if len(index) > 0 else []
+            index = index[index >= min_lp]
             prev_index = index[0]
-            prev_char = -1 * char_size_min
-            # ch_ind = 0
-            # for i in range(1, len(index)):
-            #     if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
-            #         delta = int((index[i - 1] - prev_index) / 2) + prev_index
-            #         if (delta - prev_char) < char_size_min:
-            #             continue
-            #         prev_char = index[i - 1]
-            #         mask_index_split.append(delta)
-            #         ch_ind += 1
-            #         if ch_ind == 7:
-            #             char_size_min -= 4
-            #         prev_index = index[i]
-            # char_size_min += 4
-            # for i in range(1, len(mask_index_split)):
-            #     if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
-            #         mask_index_split.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
             mask_crop = []
             for i in range(1, len(index)):
                 if (index[i] - index[i - 1]) > 2 or index[i] == (img.shape[1] - 1):
                     delta = int((index[i - 1] - prev_index) / 2 + prev_index)
                     mask_index_split.append(delta)
                     prev_index = index[i]
-            # char_size_min +=4
-            ch_ind = 0
             mask_crop.append(mask_index_split[0])
             for i in range(1, len(mask_index_split)):
-                # if ch_ind == 7:
-                #    char_size_min -= 2
-                # ch_ind += 1
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
                     mask_crop.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
                 if (mask_index_split[i] - mask_index_split[i - 1]) >= char_size_min:
