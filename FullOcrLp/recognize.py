@@ -17,8 +17,8 @@ LP_MAX_LENGHT = 9
 
 
 class RecognizeLp(object):
-    def __init__(self, detect_koeff=0.2, detect_area=600.0, predict_detect_level=0.55, predict_filter_level=0.6,
-                 predict_char_level=0.90):
+    def __init__(self, detect_koeff=0.10, detect_area=250.0, predict_detect_level=0.15, predict_filter_level=0.6,
+                 predict_char_level=0.90, image_offset=1):
         self.cntf = 0
         self.folder_nn = 'nn/'
         self.nn_detect_lp = 'model-detect-lp'
@@ -32,6 +32,7 @@ class RecognizeLp(object):
         self.cdl = predict_char_level
         self.detect_k = detect_koeff
         self.detect_area = detect_area
+        self.image_offset = image_offset
         self.detect_number = []
         self.letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
                         'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
@@ -49,6 +50,8 @@ class RecognizeLp(object):
             pred = self.dlp.predict(img_crop)[0]
             mask = np.zeros(pred.shape)
             mask[pred >= self.pdl] = 255
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (12, 1))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
             mask = mask.astype(np.uint8)
             _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -63,13 +66,15 @@ class RecognizeLp(object):
                 print(x, y, h / w if w > 0 else 0, area)
                 img_gepotise = []
                 md_arr = []
-                if w > 0 and h / w > self.detect_k and area > self.detect_area:
+                if w > 0 and h / w >= self.detect_k and area > self.detect_area:
                     for i in range(-10, 10):
-                        out = mask[y - 1:y + h + 1, x - 2:x + w + 2]
+                        out = mask[y - self.image_offset:y + h + self.image_offset,
+                              x - self.image_offset:x + w + self.image_offset]
                         out = self.__image_rotate(out, i)
                         md = np.median(np.mean(out, axis=1))
                         md_arr.append(md)
-                        out = img[y - 1:y + h + 1, x - 1:x + w + 1]
+                        out = img[y - self.image_offset:y + h + self.image_offset,
+                              x - self.image_offset:x + w + self.image_offset]
                         out = self.__image_rotate(out, i)
                         out = cv2.resize(out, (256, 64))
                         img_gepotise.append(out)
@@ -482,7 +487,57 @@ class RecognizeLp(object):
         return self.__image_filter(images)
 
     def image_detect(self, image):
-        return self.__detect_lp(image)
+        try:
+            img_crop = cv2.GaussianBlur(image.copy(), (5, 5), 1)
+            img_crop = cv2.resize(img_crop, (224, 224))
+            img_crop = img_crop / 255
+            img_crop = np.reshape(img_crop, (1, img_crop.shape[0], img_crop.shape[1], 1))
+            pred = self.dlp.predict(img_crop)[0]
+            mask = np.zeros(pred.shape)
+            mask[pred >= self.pdl] = 255
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (12, 1))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+            mask = mask.astype(np.uint8)
+            _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if len(contours) == 0:
+                return None
+            result = []
+            for cont in contours:
+                epsilon = 0.005 * cv2.arcLength(cont, True)
+                approx = cv2.approxPolyDP(cont, epsilon, True)
+                (x, y, w, h) = cv2.boundingRect(approx)
+                area = cv2.contourArea(approx)
+                print(x, y, h / w if w > 0 else 0, area)
+                img_gepotise = []
+                md_arr = []
+                if w > 0 and h / w >= self.detect_k and area > self.detect_area:
+                    for i in range(-10, 10):
+                        out = mask[y - self.image_offset:y + h + self.image_offset,
+                              x - self.image_offset:x + w + self.image_offset]
+                        out = self.__image_rotate(out, i)
+                        md = np.median(np.mean(out, axis=1))
+                        md_arr.append(md)
+                        out = image[y - self.image_offset:y + h + self.image_offset,
+                              x - self.image_offset:x + w + self.image_offset]
+                        out = self.__image_rotate(out, i)
+                        out = cv2.resize(out, (256, 64))
+                        img_gepotise.append(out)
+                        result.append(out)
+                    #if len(md_arr) == 0:
+                    #    continue
+                    mdmax = np.max(md_arr)
+                    #maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
+                    #images = np.array(img_gepotise)[maxs]
+                    img_packet = []
+                    #for im in images:
+                    #result.append(im)
+                    #    img_packet.append(self.__image_pre_filter(im))
+                     #   result.append(img_packet)
+            return np.array(result)
+        except:
+            logging.exception('')
+            return None
 
     def __number_normalistion(self, char, isdigist):
         if isdigist:
