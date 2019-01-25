@@ -560,7 +560,7 @@ class RecognizeLp(object):
         return char
 
     def __match_to_number(self, number):
-        regex = r"\D\d{3}\D{2}\d{2,3}"
+        regex = r"^\D\d{3}\D{2}\d{2,3}$"
         return re.findall(regex, number)
 
     # load model for get license plate from image
