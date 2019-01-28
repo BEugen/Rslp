@@ -17,6 +17,7 @@ MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
 
+
 def ocr(qo, qi):
     rc = recognise.RecognizeLp()
     while True:
@@ -25,7 +26,6 @@ def ocr(qo, qi):
             if not os.path.exists(fn):
                 os.makedirs(fn)
             image = qi.get()
-            #image = cv2.equalizeHist(image)
             cv2.imwrite(os.path.join(fn, str(uuid.uuid4()) + '.jpg'), image)
             rc.recognize(image, fn)
             qo.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr])
@@ -37,8 +37,7 @@ def ocr(qo, qi):
 
 
 async def tcp_echo_client(server, port, message, loop):
-    reader, writer = await asyncio.open_connection(server, port,
-                                                   loop=loop)
+    reader, writer = await asyncio.open_connection(server, port, loop=loop)
     print('Send: %r' % message)
     writer.write(message.encode())
     writer.close()
@@ -52,6 +51,7 @@ def send_ocr(server, port, message):
 
 def ocr_kill(ocr):
     ocr.terminate()
+
 
 def video_capture(source, width, height):
     try:
@@ -70,8 +70,7 @@ def main(args):
     json_file = open(js_path).read()
     js = json.loads(json_file)
     config = js[str(args.config)]
-    x1, x2, y1, y2 = config['region'] #(125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
-    #(x_o, y_o) = 0, 0
+    x1, x2, y1, y2 = config['region']  # (125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
     cap = video_capture(config['videosource'], config['width'], config['height'])
     if cap is None:
         return
@@ -82,7 +81,7 @@ def main(args):
     p = Process(target=ocr, args=(qo, qi))
     p.start()
     atexit.register(ocr_kill, p)
-    md = motiondetect.MotionDetect(region=(0, x2-x1, 0, y2-y1), limit_height=50, limit_width=50, blur=15)
+    md = motiondetect.MotionDetect(region=(0, x2 - x1, 0, y2 - y1), limit_height=50, limit_width=50, blur=15)
     while True:
         try:
             ret, image = cap.read()
@@ -108,7 +107,7 @@ def main(args):
                 else:
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
             cv2.putText(image, number, (10, 35), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-            #image[y1:y2, x1:x2] = imgc
+            # image[y1:y2, x1:x2] = imgc
             cv2.imshow('Video', image)
             if cv2.waitKey(1) == 27:
                 cap.release()
@@ -131,4 +130,3 @@ if __name__ == '__main__':
                         help="Config file")
     args = parser.parse_args()
     main(args)
-
