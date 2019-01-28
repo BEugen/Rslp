@@ -1,0 +1,10 @@
+{
+  "0": {
+    "region": [125, 950, 100, 620],
+    "videosource": "http:///mjpg/video.mjpg",
+    "width": 1024,
+    "height": 768,
+    "server": "127.0.0.1",
+    "port": 5555
+  }
+}

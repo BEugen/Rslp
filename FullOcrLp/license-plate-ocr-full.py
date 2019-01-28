@@ -1,21 +1,24 @@
 import os
-import recognize
+import recognise
 import cv2
-import numpy as np
 import uuid
 from multiprocessing import Process, Queue
 import atexit
 import time
 import motiondetect
+import asyncio
+import argparse
+import json
+import logging
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
-IMG_FOR_OCR = 'E:\\temp\\chars'
+IMG_FOR_OCR = '/mnt/misk/misk/lplate/temp'
 MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
 
 def ocr(qo, qi):
-    rc = recognize.RecognizeLp()
+    rc = recognise.RecognizeLp()
     while True:
         if qi.qsize() > 0:
             fn = os.path.join(IMG_FOR_OCR, str(uuid.uuid4()))
@@ -32,17 +35,48 @@ def ocr(qo, qi):
             print('End ocr')
         time.sleep(0.1)
 
+
+async def tcp_echo_client(server, port, message, loop):
+    reader, writer = await asyncio.open_connection(server, port,
+                                                   loop=loop)
+    print('Send: %r' % message)
+    writer.write(message.encode())
+    writer.close()
+
+
+def send_ocr(server, port, message):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(tcp_echo_client(server, port, message, loop))
+    loop.close()
+
+
 def ocr_kill(ocr):
     ocr.terminate()
 
-def main():
-    img_old = None
+def video_capture(source, width, height):
+    try:
+        cap = cv2.VideoCapture(source)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        return cap
+    except:
+        logging.exception('')
+        return None
+
+
+def main(args):
     number = ''
-    x1, x2, y1, y2 = (125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
+    js_path = os.path.join(args.config_file)
+    json_file = open(js_path).read()
+    js = json.loads(json_file)
+    config = js[str(args.config)]
+    x1, x2, y1, y2 = config['region'] #(125, 950, 100, 620)#src='http:///mjpg/video.mjpg',
     #(x_o, y_o) = 0, 0
-    cap = cv2.VideoCapture('http://172.31.176.6/mjpg/video.mjpg')
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 768)
+    cap = video_capture(config['videosource'], config['width'], config['height'])
+    if cap is None:
+        return
+    server = config['server']
+    port = config['port']
     qo = Queue()
     qi = Queue()
     p = Process(target=ocr, args=(qo, qi))
@@ -50,75 +84,51 @@ def main():
     atexit.register(ocr_kill, p)
     md = motiondetect.MotionDetect(region=(0, x2-x1, 0, y2-y1), limit_height=50, limit_width=50, blur=15)
     while True:
-        ret, image = cap.read()
-        img = image[y1:y2, x1:x2]
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        #blur = cv2.GaussianBlur(img, (21, 21), 0)
-       # if img_old is None:
-        #    img_old = blur
-       #     continue
-        #ld = np.sum((img.astype("float") - img_old.astype("float")) ** 2)
-        #ld /= float(img.shape[0] * img.shape[1])
-        #ld = round(ld / 100.0, 2)
-        #diff = cv2.absdiff(img_old, blur)
-        #img_old = blur
-        #ret, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
-        # kernel = np.ones((5, 5), np.uint8)
-        #thresh = cv2.dilate(thresh, kernel, iterations=3)
-        #_, contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        #imgc = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-        # (x, y, w, h) = 0, 0, 0, 0
-        # if len(contours) != 0:
-        #     cnt = contours[0]
-        #     max_area = cv2.contourArea(cnt)
-        #     for cont in contours:
-        #         if cv2.contourArea(cont) > max_area:
-        #             cnt = cont
-        #             max_area = cv2.contourArea(cont)
-        #     epsilon = 0.025 * cv2.arcLength(cnt, True)
-        #     approx = cv2.approxPolyDP(cnt, epsilon, True)
-        #     (x, y, w, h) = cv2.boundingRect(approx)
-        #     if h < MOTION_HW_OBJECT and w < MOTION_HW_OBJECT:
-        #         (x, y) = 0, 0
-        #     else:
-        #         cv2.rectangle(imgc, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        # (xd, yd) = (math.fabs(x - x_o), math.fabs(y - y_o))
-        cv2.rectangle(image, (0, 0), (image.shape[1], 50), (255, 255, 255), cv2.FILLED)
-        cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        #cv2.putText(image, str(round(xd, 2)) + ', ' + str(round(yd, 2)), (10, 50), font, 2, (0, 0, 0), 2, cv2.LINE_AA)
-        #if (xd + yd + x + y) != 0.0:
-       # print(xd, yd, x, y)
-        if md.detect(img.copy()):
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            qi.put(img)
-        #(x_o, y_o) = x, y
-        if qo.qsize() > 0:
-            ocr_data = qo.get()
-            if ocr_data[0]:
-                number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
-                cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
-            else:
-                cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
-        cv2.putText(image, number, (10, 35), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-        #image[y1:y2, x1:x2] = imgc
-        cv2.imshow('Video', image)
-        if cv2.waitKey(1) == 27:
+        try:
+            ret, image = cap.read()
+            if image is None:
+                cap.release()
+                cap = video_capture(config['videosource'], config['width'], config['height'])
+                continue
+            img = image[y1:y2, x1:x2]
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            cv2.rectangle(image, (0, 0), (image.shape[1], 50), (255, 255, 255), cv2.FILLED)
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            if md.detect(img.copy()):
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                qi.put(img)
+            if qo.qsize() > 0:
+                ocr_data = qo.get()
+                if ocr_data[0]:
+                    number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
+                    cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
+                    sp = Process(target=send_ocr, args=(server, port, number))
+                    sp.start()
+                else:
+                    cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
+            cv2.putText(image, number, (10, 35), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
+            #image[y1:y2, x1:x2] = imgc
+            cv2.imshow('Video', image)
+            if cv2.waitKey(1) == 27:
+                cap.release()
+                cv2.destroyAllWindows()
+                exit(0)
+            if not p.run():
+                p = Process(target=ocr, args=(qo, qi))
+                p.start()
+        except:
+            logging.exception('')
             cap.release()
             cv2.destroyAllWindows()
-            exit(0)
-
-    # for file in os.listdir(IMG_PATH):
-    # #file = '16-12-2018_4-52-43_2.jpg'#'FirstFN_cam2 (176).jpg'
-    #     fp = os.path.join(IMG_PATH, file)
-    #     img = cv2.imread(fp, cv2.IMREAD_GRAYSCALE)
-    #     x1, x2, y1, y2 = (125, 1070, 380, 830)
-    #     img = img[y1:y2, x1:x2]
-    #     fn = os.path.splitext(file)[0]
-    #     print(fn)
-    #     fn = os.path.join(IMG_FOR_OCR, fn)
-    #     rc.recognize(img, fn)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default=0, type=int,
+                        help="Number config to recognise")
+    parser.add_argument('--config_file', default='config.json',
+                        help="Config file")
+    args = parser.parse_args()
+    main(args)
+
