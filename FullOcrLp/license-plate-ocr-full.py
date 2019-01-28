@@ -102,7 +102,7 @@ def main(args):
                 if ocr_data[0]:
                     number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
-                    sp = Process(target=send_ocr, args=(server, port, number))
+                    sp = Process(target=send_ocr, args=(server, port, args.config + '#' + number))
                     sp.start()
                 else:
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
