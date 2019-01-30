@@ -383,7 +383,7 @@ class RecognizeLp(object):
         try:
             img = image.copy()
             md = np.median(img)
-            img[img >= md] = fill_value
+            img[img >= (md*1.05)] = fill_value
             img[img < (md*0.6)] = fill_value_zero
             return cv2.GaussianBlur(img, (blur, blur), blur_iter)
         except:
