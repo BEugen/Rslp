@@ -85,9 +85,13 @@ class RecognizeLp(object):
                     images = np.array(img_gepotise)[maxs]
                     img_packet = []
                     for im in images:
-                        img_packet.append(im)
                         img_packet.append(self.__image_pre_filter(im))
+                        img_packet.append(im)
                         result.append(img_packet)
+            if len(result) > 3:
+                result = result[:4]
+            if len(result) == 1:
+                result[0].append(result[0][1])
             return np.array(result)
         except:
             logging.exception('')
@@ -161,6 +165,8 @@ class RecognizeLp(object):
     def __split_number(self, image, folder, char_size_min=18, areapixel=30, split_level=3):
         try:
             _, tresh = cv2.threshold(np.uint8(image.copy()), 180, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 4))
+            tresh = cv2.morphologyEx(tresh, cv2.MORPH_CLOSE, kernel)
             img = self.__bw_area_open(tresh, areapixel)
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 40))
             im_morph = cv2.morphologyEx(img.copy(), cv2.MORPH_CLOSE, kernel)
@@ -348,7 +354,7 @@ class RecognizeLp(object):
         try:
             img = image.copy()
             md = np.median(img)
-            img[img >= md] = fill_value
+            img[img >= (md*1.05)] = fill_value
             img[img < (md*0.6)] = fill_value_zero
             return cv2.GaussianBlur(img, (blur, blur), blur_iter)
         except:
@@ -385,7 +391,7 @@ class RecognizeLp(object):
                     if img is not None:
                         images_char = self.__image_split(img, folder)
                         self.__image_to_chars(images_char, folder)
-            self.__select_ocr_number()
+            self.__select_ocr_number(folder)
         except:
             logging.exception('')
 
@@ -412,19 +418,21 @@ class RecognizeLp(object):
                 if i > len(self.number_format):
                     continue
                 number += self.__number_normalistion(oc, self.number_format[i] == 'd')
-            f = open(os.path.join(folder, number + '.txt'), "a")
-            f.write(number)
-            f.close()
             print(number)
             if self.__match_to_number(number):
                 self.detect_number.append(number)
 
-    def __select_ocr_number(self):
+    def __select_ocr_number(self, folder):
+        label = 'bad'
         if len(self.detect_number) != 0:
             self.number_ocr = self.__max_number_detect(self.detect_number)[0]
             self.date_ocr = datetime.now()
             self.ok_ocr = True
+            label = self.number_ocr
             print('Detect number = %s' % self.number_ocr)
+        f = open(os.path.join(folder, label + '.txt'), "a")
+        f.write(label)
+        f.close()
 
     def __max_number_detect(self, numbers):
         count = {}
