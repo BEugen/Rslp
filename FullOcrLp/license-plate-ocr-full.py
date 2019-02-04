@@ -1,5 +1,5 @@
 import os
-import recognise
+import nwirecognise
 import cv2
 import uuid
 from multiprocessing import Process, Queue
@@ -12,14 +12,14 @@ import json
 import logging
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
-IMG_FOR_OCR = '/mnt/misk/misk/lplate/temp'
+IMG_FOR_OCR = 'E:/temp/chars'
 MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
 
 
 def ocr(qo, qi):
-    rc = recognise.RecognizeLp()
+    rc = nwirecognise.RecognizeLp()
     while True:
         if qi.qsize() > 0:
             fn = os.path.join(IMG_FOR_OCR, str(uuid.uuid4()))
@@ -102,7 +102,7 @@ def main(args):
                 if ocr_data[0]:
                     number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
-                    sp = Process(target=send_ocr, args=(server, port, args.config + '#' + number))
+                    sp = Process(target=send_ocr, args=(server, port, str(args.config) + '&' + number))
                     sp.start()
                 else:
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
@@ -113,7 +113,7 @@ def main(args):
                 cap.release()
                 cv2.destroyAllWindows()
                 exit(0)
-            if not p.run():
+            if not p.is_alive():
                 p = Process(target=ocr, args=(qo, qi))
                 p.start()
         except:

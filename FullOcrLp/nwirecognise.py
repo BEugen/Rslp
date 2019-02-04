@@ -411,7 +411,7 @@ class RecognizeLp(object):
             if len(imgs) > 0:
                 nclass = self.__image_ocr_acc_level(imgs, acc_level=self.cdl)
             number = ''
-            if len(nclass) == 0:
+            if nclass is None or len(nclass) == 0:
                 continue
             for i in range(len(nclass)):
                 oc = self.letters[nclass[i]]
