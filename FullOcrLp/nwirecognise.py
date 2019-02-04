@@ -17,7 +17,7 @@ LP_MAX_LENGHT = 9
 
 
 class RecognizeLp(object):
-    def __init__(self, detect_koeff=0.10, detect_area=250.0, predict_detect_level=0.15, predict_filter_level=0.6,
+    def __init__(self, detect_koeff=0.10, detect_area=250.0, predict_detect_level=0.15, predict_filter_level=0.85,
                  predict_char_level=0.90, image_offset=1):
         self.cntf = 0
         self.folder_nn = 'nn/'
@@ -190,15 +190,20 @@ class RecognizeLp(object):
             mask_crop.append(mask_index_split[0])
             for i in range(1, len(mask_index_split)):
                 if (mask_index_split[i] - mask_index_split[i - 1]) > char_size_min * 2.2:
-                    mask_crop.insert(i, int((mask_index_split[i] + mask_index_split[i - 1]) / 2))
+                    offset = int((mask_index_split[i] + mask_index_split[i - 1]) / 2)
+                    if i < (len(mask_index_split) - 1):
+                        mask_index_split.insert(i, offset)
+                    else:
+                        mask_index_split[i] = offset
                 if (mask_index_split[i] - mask_index_split[i - 1]) >= char_size_min:
                     mask_crop.append(mask_index_split[i])
             img_chars = []
             for i in range(1, len(mask_crop)):
                 out = self.__image_crop(img[:, mask_crop[i - 1]: mask_crop[i]])
+                if out is None:
+                    continue
                 out = self.__image_normalisation(out)
                 img_chars.append(out)
-            y = np.full((len(mask_crop),), 20.0)
             return img_chars
         except:
             logging.exception('')
@@ -248,7 +253,7 @@ class RecognizeLp(object):
             logging.exception('')
             return False
 
-    def __image_crop(self, image):
+    def __image_crop(self, image, min_w_char=10):
         img = self.__bw_area_open(np.uint8(image.copy()), 5)
         (min_x, min_y, max_x, max_y) = img.shape[1], img.shape[0], 0, 0
         (_, contours, _) = cv2.findContours(img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -260,6 +265,8 @@ class RecognizeLp(object):
             min_y = y if y < min_y else min_y
             max_x = (x + w) if max_x < (x + w) else max_x
             max_y = (y + h) if max_y < (y + h) else max_y
+        if (max_x - min_x) < min_w_char:
+            return None
         im = img[min_y:max_y, min_x:max_x]
         return im
 
