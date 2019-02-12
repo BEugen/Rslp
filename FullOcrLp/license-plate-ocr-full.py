@@ -66,7 +66,8 @@ def video_capture(source, width, height):
 
 def main(args):
     number = ''
-    js_path = os.path.join(args.config_file)
+    dsf = os.path.dirname(os.path.realpath(__file__))
+    js_path = os.path.join(dsf, args.config_file)
     json_file = open(js_path).read()
     js = json.loads(json_file)
     config = js[str(args.config)]
@@ -88,6 +89,7 @@ def main(args):
             if image is None:
                 cap.release()
                 cap = video_capture(config['videosource'], config['width'], config['height'])
+                time.sleep(2)
                 continue
             img = image[y1:y2, x1:x2]
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)

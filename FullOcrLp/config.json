@@ -1,7 +1,26 @@
 {
-  "0": {
+  "3": {
+    "camid": 0,
     "region": [125, 950, 100, 620],
-    "videosource": "http:///mjpg/video.mjpg",
+    "videosource": "http://172.31.176.6/mjpg/video.mjpg",
+    "width": 1024,
+    "height": 768,
+    "server": "127.0.0.1",
+    "port": 5555
+  },
+  "0": {
+    "camid": 1,
+    "region": [255, 1080, 250, 770],
+    "videosource": "rtsp://admin:admin@192.168.0.20:554/av0_0",
+    "width": 1024,
+    "height": 768,
+    "server": "127.0.0.1",
+    "port": 5555
+  },
+  "1": {
+    "camid": 1,
+    "region": [255, 1080, 250, 770],
+    "videosource": "rtsp://admin:admin@192.168.0.30:554/av0_0",
     "width": 1024,
     "height": 768,
     "server": "127.0.0.1",

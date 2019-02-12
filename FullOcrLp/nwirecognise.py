@@ -2,6 +2,7 @@ import numpy as np
 import os
 import cv2
 import re
+import os
 from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
@@ -20,7 +21,7 @@ class RecognizeLp(object):
     def __init__(self, detect_koeff=0.10, detect_area=250.0, predict_detect_level=0.15, predict_filter_level=0.85,
                  predict_char_level=0.90, image_offset=1):
         self.cntf = 0
-        self.folder_nn = 'nn/'
+        self.folder_nn = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'nn/')
         self.nn_detect_lp = 'model-detect-lp'
         self.nn_ocr_lp = 'model-ocr-lp'
         self.nn_filter_lp = 'model-filter-lp'

@@ -63,6 +63,7 @@ class MotionDetect:
         if self.motion_l_limit <= xd < self.motion_h_limit \
                 and self.motion_l_limit <= yd < self.motion_h_limit \
                 and (self.x < 1.5 and self.y < 1.5) and (self.xo != 0 or self.yo != 0):
+                #and (self.w > 100 or self.h > 100):
             print('Recognise!!!')
             print(xd, self.x, self.xo, '||', yd, self.y, self.yo, '||', self.w, self.h)
             result = True
