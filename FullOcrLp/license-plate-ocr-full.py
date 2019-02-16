@@ -1,5 +1,5 @@
 import os
-import nwirecognise
+import recognise
 import cv2
 import uuid
 from multiprocessing import Process, Queue
@@ -19,7 +19,7 @@ MOTION_HW_OBJECT = 50
 
 
 def ocr(qo, qi):
-    rc = nwirecognise.RecognizeLp()
+    rc = recognise.RecognizeLp()
     while True:
         if qi.qsize() > 0:
             fn = os.path.join(IMG_FOR_OCR, str(uuid.uuid4()))
@@ -97,7 +97,9 @@ def main(args):
             cv2.rectangle(image, (0, 0), (image.shape[1], 50), (255, 255, 255), cv2.FILLED)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            if md.detect(img.copy()):
+            evc_l = md.evc_detect(img.copy())
+            cv2.putText(image, str(evc_l), (620, 230), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
+            if evc_l > 3.0:
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 qi.put(img)
             if qo.qsize() > 0:

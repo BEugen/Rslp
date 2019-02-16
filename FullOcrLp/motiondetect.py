@@ -22,6 +22,19 @@ class MotionDetect:
         self.w = 0
         self.h = 0
 
+    def evc_detect(self, image, blur=11, evlc=3.0):
+        blur = cv2.GaussianBlur(image, (blur, blur), 0)
+        if self.older_image is None:
+            self.older_image = blur
+            return 0.0
+        ret, thresh1 = cv2.threshold(blur, 25, 255, cv2.THRESH_BINARY)
+        ret, thresh2 = cv2.threshold(self.older_image, 25, 255, cv2.THRESH_BINARY)
+        evl = np.linalg.norm(thresh1 - thresh2)/100
+        if evl >= evlc:
+            self.older_image = blur
+        return round(evl, 1)
+
+
     def detect(self, image):
         result = False
         blur = cv2.GaussianBlur(image, (self.blur, self.blur), 0)
