@@ -1,5 +1,5 @@
 import os
-import recognise
+import nwirecognise
 import cv2
 import uuid
 from multiprocessing import Process, Queue
@@ -19,7 +19,7 @@ MOTION_HW_OBJECT = 50
 
 
 def ocr(qo, qi):
-    rc = recognise.RecognizeLp()
+    rc = nwirecognise.RecognizeLp()
     while True:
         if qi.qsize() > 0:
             fn = os.path.join(IMG_FOR_OCR, str(uuid.uuid4()))
