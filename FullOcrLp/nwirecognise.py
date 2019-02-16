@@ -85,12 +85,14 @@ class RecognizeLp(object):
                     maxs = np.where((md_arr >= np.uint32(mdmax)) & (md_arr <= mdmax))
                     images = np.array(img_gepotise)[maxs]
                     img_packet = []
+                    i = 0
                     for im in images:
+                        if i > 5:
+                            break
+                        i += 1
                         img_packet.append(self.__image_pre_filter(im))
                         img_packet.append(im)
-                        result.append(img_packet)
-            if len(result) > 3:
-                result = result[:4]
+                    result.append(img_packet)
             if len(result) == 1:
                 result[0].append(result[0][1])
             return np.array(result)
