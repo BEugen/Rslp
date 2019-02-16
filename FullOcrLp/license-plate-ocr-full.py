@@ -26,9 +26,10 @@ def ocr(qo, qi):
             if not os.path.exists(fn):
                 os.makedirs(fn)
             image = qi.get()
-            cv2.imwrite(os.path.join(fn, str(uuid.uuid4()) + '.jpg'), image)
+            img_path = os.path.join(fn, str(uuid.uuid4()) + '.jpg')
+            cv2.imwrite(img_path, image)
             rc.recognize(image, fn)
-            qo.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr])
+            qo.put([rc.ok_ocr, rc.date_ocr, rc.number_ocr, img_path])
             if rc.ok_ocr:
                 while qi.qsize() > 0:
                     qi.get()
@@ -102,14 +103,15 @@ def main(args):
             if qo.qsize() > 0:
                 ocr_data = qo.get()
                 if ocr_data[0]:
-                    number = ocr_data[2] + ' ' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
+                    number = ocr_data[2] + '&' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
-                    sp = Process(target=send_ocr, args=(server, port, str(args.config) + '&' + number))
+                    sp = Process(target=send_ocr, args=(server, port, str(args.config) + '&' + number + '&' +
+                                                        ocr_data[3] + '&'))
                     sp.start()
                 else:
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 0, 255), 2)
             cv2.putText(image, number, (10, 35), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-            # image[y1:y2, x1:x2] = imgc
+            # #image[y1:y2, x1:x2] = imgc
             cv2.imshow('Video', image)
             if cv2.waitKey(1) == 27:
                 cap.release()
