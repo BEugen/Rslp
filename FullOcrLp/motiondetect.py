@@ -4,7 +4,7 @@ import math
 
 
 class MotionDetect:
-    def __init__(self, blur=11, evlc=20.0):
+    def __init__(self, blur=11, evlc=10.0):
         self.blur = blur
         self.evlc = evlc
         self.older_image = None
