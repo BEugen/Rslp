@@ -12,6 +12,7 @@ import scipy.fftpack
 import logging
 from datetime import datetime
 
+#adapt opencv 4.0
 LP_LETTERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
               'B', 'C', 'D', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y', ' ']
 LP_MAX_LENGHT = 9
@@ -55,7 +56,7 @@ class RecognizeLp(object):
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
             mask = mask.astype(np.uint8)
-            _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if len(contours) == 0:
                 return None
             result = []
@@ -102,7 +103,7 @@ class RecognizeLp(object):
 
     def __image_clear_border(self, image, radius=3):
         img = image.copy()
-        _, cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         (imgrows, imgcols) = image.shape
         cntrs = []
         for idx in np.arange(len(cntr)):
@@ -121,7 +122,7 @@ class RecognizeLp(object):
 
     def __bw_area_open(self, image, areapixel=10):
         img = image.copy()
-        _, cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cntr, _ = cv2.findContours(img.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         for idx in np.arange(len(cntr)):
             area = cv2.contourArea(cntr[idx])
             if 0 <= area <= areapixel:
@@ -259,7 +260,7 @@ class RecognizeLp(object):
     def __image_crop(self, image, min_w_char=10):
         img = self.__bw_area_open(np.uint8(image.copy()), 5)
         (min_x, min_y, max_x, max_y) = img.shape[1], img.shape[0], 0, 0
-        (_, contours, _) = cv2.findContours(img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cont in contours:
             epsilon = 0.005 * cv2.arcLength(cont, True)
             approx = cv2.approxPolyDP(cont, epsilon, True)
@@ -470,7 +471,7 @@ class RecognizeLp(object):
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
             mask = mask.astype(np.uint8)
-            _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if len(contours) == 0:
                 return None
             result = []
