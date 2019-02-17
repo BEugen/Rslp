@@ -83,7 +83,7 @@ def main(args):
     p = Process(target=ocr, args=(qo, qi))
     p.start()
     atexit.register(ocr_kill, p)
-    md = motiondetect.MotionDetect(region=(0, x2 - x1, 0, y2 - y1), limit_height=50, limit_width=50, blur=15)
+    md = motiondetect.MotionDetect()
     while True:
         try:
             ret, image = cap.read()
@@ -98,8 +98,8 @@ def main(args):
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
             font = cv2.FONT_HERSHEY_SIMPLEX
             evc_l = md.evc_detect(img.copy())
-            cv2.putText(image, str(evc_l), (620, 230), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-            if evc_l > 100.0:
+            cv2.putText(image, str(evc_l), (620, 200), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
+            if evc_l > 3.0:
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 qi.put(img)
             if qo.qsize() > 0:
