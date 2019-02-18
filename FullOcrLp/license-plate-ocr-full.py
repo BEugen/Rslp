@@ -67,6 +67,7 @@ def video_capture(source, width, height):
 
 def main(args):
     number = ''
+    _img_count = 0
     dsf = os.path.dirname(os.path.realpath(__file__))
     js_path = os.path.join(dsf, args.config_file)
     json_file = open(js_path).read()
@@ -99,11 +100,13 @@ def main(args):
             font = cv2.FONT_HERSHEY_SIMPLEX
             evc_l = md.evc_detect(img.copy())
             cv2.putText(image, str(evc_l), (620, 200), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-            if evc_l > 3.0:
+            if evc_l >= 2.5 and _img_count < 10:
+                _img_count += 1
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 qi.put(img)
             if qo.qsize() > 0:
                 ocr_data = qo.get()
+                _img_count -= 1
                 if ocr_data[0]:
                     number = ocr_data[2] + '&' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
