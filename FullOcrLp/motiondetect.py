@@ -4,7 +4,7 @@ import math
 
 
 class MotionDetect:
-    def __init__(self, blur=3, evlc=5.0, scadr=2):
+    def __init__(self, blur=7, evlc=5.0, scadr=2):
         self.blur = blur
         self.evlc = evlc
         self.older_image = None
@@ -13,7 +13,7 @@ class MotionDetect:
 
     def evc_detect(self, image):
         image = cv2.resize(image, (64, 64))
-        blur = cv2.GaussianBlur(image, (self.blur, self.blur), 10)
+        blur = cv2.medianBlur(image, self.blur)
         ret, thresh = cv2.threshold(blur, 40, 255, cv2.THRESH_BINARY)
         if self.older_image is None:
             self.older_image = thresh
