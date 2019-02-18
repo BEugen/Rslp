@@ -4,7 +4,7 @@ import math
 
 
 class MotionDetect:
-    def __init__(self, blur=11, evlc=10.0):
+    def __init__(self, blur=15, evlc=5.0):
         self.blur = blur
         self.evlc = evlc
         self.older_image = None
@@ -17,6 +17,6 @@ class MotionDetect:
             return 0.0
         evl = np.linalg.norm(thresh - self.older_image)/100
         if evl >= self.evlc:
-            self.older_image = blur
+            self.older_image = thresh
         return round(evl, 1)
 
