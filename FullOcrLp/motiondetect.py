@@ -4,7 +4,7 @@ import math
 
 
 class MotionDetect:
-    def __init__(self, blur=7, evlc=5.0, scadr=2):
+    def __init__(self, blur=7, evlc=3.0, scadr=2):
         self.blur = blur
         self.evlc = evlc
         self.older_image = None
@@ -21,7 +21,7 @@ class MotionDetect:
         diff = cv2.absdiff(thresh, self.older_image)
         cv2.imshow('New', diff)
         evl = np.linalg.norm(diff - 0)/1000
-        if self.sc_count > self.scadr and evl >= self.evlc:
+        if self.sc_count < self.scadr and evl >= self.evlc:
             self.sc_count = 0
             self.older_image = thresh
         self.sc_count += 1

@@ -100,7 +100,7 @@ def main(args):
             font = cv2.FONT_HERSHEY_SIMPLEX
             evc_l = md.evc_detect(img.copy())
             cv2.putText(image, str(evc_l), (620, 200), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
-            if evc_l >= 2.5 and _img_count < 10:
+            if evc_l >= 5.0 and _img_count < 10:
                 _img_count += 1
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 qi.put(img)
