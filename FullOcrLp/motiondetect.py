@@ -13,6 +13,7 @@ class MotionDetect:
         self.scadr = scadr
         self.sc_count = 0
         self.fn_count = fon_count
+        self.old_evl = 0.00001
 
 
     def evc_detect(self, image):
@@ -24,13 +25,14 @@ class MotionDetect:
             return 0.0
         diff = cv2.absdiff(thresh, self.older_image)
         cv2.imshow('New', diff)
-        evl = np.linalg.norm(diff - 0)/1000
+        evl = np.linalg.norm(diff - 0)/1000.0
+        delta = math.fabs(evl - self.old_evl)/evl
+        if delta < 0.2:
+            self.fn_count -= 1
         if (self.sc_count < self.scadr and evl >= self.evlc) or self.fn_count <= 0:
             self.sc_count = 0
             self.older_image = thresh
             self.fn_count = self.evll
-        if evl > self.evll:
-            self.fn_count -= 1
         self.sc_count += 1
         return round(evl, 1)
 
