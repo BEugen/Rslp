@@ -38,7 +38,7 @@ def ocr(qo, qi):
         time.sleep(0.1)
 
 
-async def tcp_echo_client(server, port, message):
+def tcp_client(server, port, message):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((server, port))
     print('Send: %r' % message)
@@ -106,7 +106,7 @@ def main(args):
                 if ocr_data[0]:
                     number = ocr_data[2] + '&' + ocr_data[1].strftime('%d.%m.%Y %H:%M:%S')
                     cv2.rectangle(image, (0, 0), (image.shape[1], 50), (0, 255, 0), 2)
-                    t = Thread(target=tcp_echo_client, args=(server, port, str(args.config) + '&' + number + '&' +
+                    t = Thread(target=tcp_client, args=(server, port, str(args.config) + '&' + number + '&' +
                                                              ocr_data[3] + '&'))
                     t.start()
                 else:
