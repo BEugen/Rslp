@@ -26,7 +26,7 @@ class MotionDetect:
         cv2.imshow('New', diff)
         evl = np.linalg.norm(diff - 0) / 1000.0
         delta = math.fabs(evl - self.old_evl) / evl if evl > 0.0 else 0.0
-        if delta > 2.5:
+        if delta > 0.8:
             self.fc_count += 1
         if (self.sc_count < self.scadr and evl >= self.evlc) or self.fc_count > self.fc_end:
             self.sc_count = 0
