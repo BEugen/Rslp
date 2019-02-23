@@ -207,6 +207,8 @@ class RecognizeLp(object):
                 if out is None:
                     continue
                 out = self.__image_normalisation(out)
+                if out is None:
+                    return[]
                 img_chars.append(out)
             return img_chars
         except:
@@ -307,6 +309,9 @@ class RecognizeLp(object):
 
     def __image_normalisation(self, image):
         try:
+            countours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if len(countours) > 1:
+                return None
             y = 45
             if image.shape[0] == 0:
                 return None
