@@ -19,10 +19,12 @@ class MotionDetect:
         image = cv2.resize(image, (64, 64))
         blur = cv2.medianBlur(image, self.blur)
         ret, thresh = cv2.threshold(blur, 45, 255, cv2.THRESH_BINARY)
+
         if self.older_image is None:
             self.older_image = thresh
             return 0.0
         diff = cv2.absdiff(thresh, self.older_image)
+        contours, _ = cv2.findContours(diff, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.imshow('New', diff)
         evl = np.linalg.norm(diff - 0) / 1000.0
         delta = math.fabs(evl - self.old_evl) / evl if evl > 0.0 else 0.0
@@ -34,4 +36,4 @@ class MotionDetect:
             self.older_image = thresh
             self.old_evl = evl
         self.sc_count += 1
-        return round(evl, 1), round(delta, 2), self.fc_count
+        return round(evl, 1), round(delta, 2), self.fc_count, len(contours)

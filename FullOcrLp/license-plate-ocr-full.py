@@ -94,8 +94,8 @@ def main(args):
             cv2.rectangle(image, (0, 0), (image.shape[1], 50), (255, 255, 255), cv2.FILLED)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            evc_l, delta, count = md.evc_detect(img.copy())
-            cv2.putText(image, str(evc_l) + ' ' + str(delta) + ' ' + str(count),
+            evc_l, delta, count, countours_count = md.evc_detect(img.copy())
+            cv2.putText(image, str(evc_l) + ' ' + str(delta) + ' ' + str(count) + ' ' + str(countours_count),
                         (620, 200), font, 1, (255, 100, 0), 2, cv2.LINE_AA)
             if evc_l >= 5.0 and _img_count < 10:
                 _img_count += 1
