@@ -32,5 +32,6 @@ class MotionDetect:
             self.sc_count = 0
             self.fc_count = 0
             self.older_image = thresh
+            self.old_evl = evl
         self.sc_count += 1
         return round(evl, 1), round(delta, 2), self.fc_count
