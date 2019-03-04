@@ -15,20 +15,21 @@ class MotionDetect:
 
     def evc_detect(self, image):
         image = cv2.resize(image, (64, 64))
-        blur = cv2.medianBlur(image, self.blur)
-        ret, thresh = cv2.threshold(blur, 45, 255, cv2.THRESH_BINARY)
-
+        blur1 = cv2.GaussianBlur(image, (3, 3), 0)
+        blur2 = cv2.GaussianBlur(image, (25, 25), 12)
+        imgsub = cv2.subtract(blur1, blur2)
         if self.older_image is None:
-            self.older_image = thresh
+            self.older_image = imgsub
             return 0.0
-        diff = cv2.absdiff(thresh, self.older_image)
-        cv2.imshow('New', diff)
-        evl = np.linalg.norm(diff - 0) / 1000.0
+        diff = cv2.absdiff(imgsub, self.older_image)
+        ret, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+        cv2.imshow('New', thresh)
+        evl = np.linalg.norm(thresh - 0) / 1000.0
         delta = math.fabs(evl - self.old_evl) / evl if evl > 0.0 else 0.0
         if delta > 1.5:
             self.fc_count += 1
         if evl >= self.evlc or self.fc_count > self.fc_end:
             self.fc_count = 0
-            self.older_image = thresh
+            self.older_image = imgsub
             self.old_evl = evl
         return round(evl, 1), round(delta, 2), self.fc_count
