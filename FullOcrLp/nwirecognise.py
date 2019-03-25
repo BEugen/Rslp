@@ -403,8 +403,10 @@ class RecognizeLp(object):
                 return
             for img in image_packet:
                 if img is not None:
+                    cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '_img.jpg'), img)
                     img = self.__image_filter(img)
                     if img is not None:
+                        cv2.imwrite(os.path.join(folder, str(uuid.uuid4()) + '_mask.jpg'), img)
                         images_char = self.__image_split(img, folder)
                         self.__image_to_chars(images_char, folder)
             self.__select_ocr_number(folder)

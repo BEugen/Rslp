@@ -13,7 +13,7 @@ import json
 import logging
 
 IMG_PATH = '/mnt/misk/misk/lplate/images'
-IMG_FOR_OCR = 'E:/temp/chars'
+IMG_FOR_OCR = '/mnt/misk/misk/lplate/img_lp_ocr'
 MOTION_H_LEVEL = 15.0
 MOTION_L_LEVEL = 0.0
 MOTION_HW_OBJECT = 50
